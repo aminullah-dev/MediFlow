@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFrame,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QPushButton,
     QSpinBox,

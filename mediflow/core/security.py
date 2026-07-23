@@ -67,9 +67,24 @@ def needs_rehash(hashed: str, *, rounds: int = _DEFAULT_ROUNDS) -> bool:
     return algorithm != _ALGORITHM or int(rounds_s) < rounds
 
 
-def generate_temporary_password(length: int = 12) -> str:
-    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
-    return "".join(secrets.choice(alphabet) for _ in range(length))
+def generate_temporary_password(length: int = 16) -> str:
+    """Generate a temporary credential that can be typed on ANY keyboard layout.
+
+    Digits only, deliberately. The digit row is identical on the US (0409) and
+    Persian (0429) Windows layouts, so the operator can always enter it no
+    matter which one happens to be active. The previous mixed alphabet could
+    not promise that: it contained ``P`` and ``U``, whose Persian shifted
+    positions emit plain ASCII (``\\`` and ``,``). Those are indistinguishable
+    from deliberately typed characters, so :mod:`mediflow.core.keyboard` must
+    not rewrite them — which made such temporary passwords permanently
+    unenterable and drove the repeated reset-and-lockout cycle.
+
+    On strength: 16 digits is ~53 bits. Against this threat model — an offline
+    single-machine deployment, the credential shown on screen, a forced change
+    on first sign-in, ten attempts per five-minute lockout, and PBKDF2 at
+    390k rounds — that is ample, and it buys a credential that always works.
+    """
+    return "".join(secrets.choice("0123456789") for _ in range(length))
 
 
 def _pbkdf2(plain: str, salt: bytes, rounds: int) -> bytes:

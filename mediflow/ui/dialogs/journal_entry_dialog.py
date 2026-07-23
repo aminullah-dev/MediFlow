@@ -1,7 +1,6 @@
 """Post a balanced double-entry journal entry."""
 from __future__ import annotations
 
-from datetime import date
 
 from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import (

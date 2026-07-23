@@ -5,7 +5,7 @@ from datetime import datetime
 
 from sqlalchemy import func, select
 
-from mediflow.data.base import local_day_bounds_utc, utcnow
+from mediflow.data.base import local_day_bounds_utc
 from mediflow.data.models.patient import Patient
 from mediflow.data.repositories.base_repository import BaseRepository
 

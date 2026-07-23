@@ -151,6 +151,33 @@ def test_correct_password_still_authenticates(db, admin_password):
     assert user.username == DEFAULT_ADMIN_USERNAME
 
 
+def test_generated_temp_passwords_are_typeable_on_any_layout():
+    """Generated credentials must survive the Persian layout untouched.
+
+    The old alphabet held 'P' and 'U', whose Persian shifted positions emit
+    plain ASCII ('\\' and ','). Recovery deliberately never rewrites ASCII, so
+    those temp passwords could not be entered at all — the root of the repeated
+    reset-and-lockout cycle. Digits are identical on both layouts.
+    """
+    from mediflow.core.security import MIN_PASSWORD_LENGTH, generate_temporary_password
+
+    for _ in range(200):
+        temp = generate_temporary_password()
+        assert temp.isdigit(), f"non-digit temp password {temp!r} may be unenterable"
+        assert len(temp) >= MIN_PASSWORD_LENGTH
+        # Typing it under either layout yields the identical string.
+        assert from_persian_layout(temp) == temp
+        assert not has_persian_layout_chars(temp)
+
+
+def test_seeded_admin_password_is_layout_safe(db):
+    """The very first credential a clinic ever sees must be enterable."""
+    password = seed_database(db)
+    assert password is not None
+    assert password.isdigit()
+    assert from_persian_layout(password) == password
+
+
 def test_username_typed_on_persian_layout_still_finds_the_account(db, admin_password):
     """'admin' typed under the Persian layout arrives as 'شیئهد'."""
     from mediflow.core.security import hash_password
@@ -172,7 +199,6 @@ def test_transparent_rehash_never_stores_the_persian_rendering(db, admin_passwor
     """Regression: a rehash after a recovered login must store the CORRECTED
     password. Storing the raw Persian input would lock the account out for good
     — the very bug this module exists to prevent."""
-    from mediflow.core import security as security_module
     from mediflow.services import auth_service as auth_module
     from mediflow.core.security import hash_password, verify_password
 

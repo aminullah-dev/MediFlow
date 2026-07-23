@@ -18,7 +18,6 @@ from mediflow.data.database import Database, current_user_id
 from mediflow.services.authz import require
 from mediflow.data.models.user import Permission, Role, User
 from mediflow.data.repositories.user_repository import (
-    PermissionRepository,
     RoleRepository,
     UserRepository,
 )

@@ -14,7 +14,6 @@ from mediflow.core.exceptions import AccountLockedError, AuthenticationError
 from mediflow.core.security import FieldCipher
 from mediflow.data.database import Database, current_user_id
 from mediflow.data.models.audit import AuditLog
-from mediflow.data.models.patient import Patient
 from mediflow.data.repositories.patient_repository import PatientRepository
 from mediflow.data.repositories.user_repository import UserRepository
 from mediflow.data.schema import create_all

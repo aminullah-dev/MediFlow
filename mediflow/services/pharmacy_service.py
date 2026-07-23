@@ -8,7 +8,6 @@ from sqlalchemy import select
 
 from mediflow.core.exceptions import BusinessRuleError, ValidationError
 from mediflow.core.logging_config import get_logger
-from mediflow.data.base import utcnow
 from mediflow.data.database import Database
 from mediflow.data.models.pharmacy import Medication, StockBatch
 from mediflow.services.authz import require
