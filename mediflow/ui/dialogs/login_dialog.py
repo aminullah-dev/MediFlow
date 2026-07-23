@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from mediflow.core.exceptions import AccountLockedError, AuthenticationError, MediFlowError
+from mediflow.core.keyboard import has_persian_layout_chars
 from mediflow.services.auth_service import AuthenticatedUser, AuthService
 from mediflow.ui import icons
 from mediflow.ui import theme as theme_colors
@@ -106,8 +107,17 @@ class LoginDialog(QDialog):
         )
         self._reveal.setCheckable(True)
         self._reveal.triggered.connect(self._toggle_reveal)
+        self._password.textChanged.connect(self._update_layout_hint)
+        self._username.textChanged.connect(self._update_layout_hint)
         root.addWidget(self._password_label)
         root.addWidget(self._password)
+
+        # The headline fix: the masked field gives no clue that the Persian
+        # layout is active, so say so the instant a Persian character arrives.
+        root.addSpacing(8)
+        self._layout_warn = self._make_banner(
+            "LayoutWarn", _WARN, _WARN, soft=theme_colors.CURRENT["surface_alt"])
+        root.addWidget(self._layout_warn["frame"])
 
         # Caps Lock hint — hidden until Caps Lock is actually on.
         self._caps = self._make_banner("CapsHint", _WARN, _WARN)
@@ -168,6 +178,8 @@ class LoginDialog(QDialog):
         self._reveal.setToolTip(
             self.tr("Hide password") if checked else self.tr("Show password"))
         self._caps["text"].setText(self.tr("Caps Lock is on"))
+        self._layout_warn["text"].setText(
+            self.tr("Your keyboard is in Persian. Press Alt+Shift to switch to English."))
 
     # -- behaviour ----------------------------------------------------------
     def _prefill_username(self) -> None:
@@ -196,6 +208,15 @@ class LoginDialog(QDialog):
         ):
             self._update_caps_hint()
         return super().eventFilter(obj, event)
+
+    def _update_layout_hint(self) -> None:
+        """Warn while typing if the Persian keyboard layout is producing input."""
+        active = (has_persian_layout_chars(self._password.text())
+                  or has_persian_layout_chars(self._username.text()))
+        if active and self._layout_warn["frame"].isHidden():
+            self._layout_warn["glyph"].setPixmap(
+                icons.pixmap("alert-triangle", 16, self._layout_warn["icon_color"]))
+        self._layout_warn["frame"].setVisible(active)
 
     def _update_caps_hint(self) -> None:
         on = _caps_lock_on()

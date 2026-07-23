@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
+from typing import NamedTuple
 
 from mediflow.core.exceptions import (
     AccountLockedError,
@@ -17,6 +18,7 @@ from mediflow.core.exceptions import (
     ValidationError,
 )
 from mediflow.data.base import utcnow
+from mediflow.core.keyboard import from_persian_layout, has_persian_layout_chars
 from mediflow.core.logging_config import get_logger
 from mediflow.core.security import (
     MIN_PASSWORD_LENGTH,
@@ -36,6 +38,13 @@ log = get_logger("services.auth")
 # — and the UI now shows the remaining attempts and a live unlock countdown.
 MAX_FAILED_ATTEMPTS = 10
 LOCKOUT_MINUTES = 5
+
+
+class _Match(NamedTuple):
+    """Result of checking a submitted password against a stored hash."""
+
+    matched: bool
+    recovered: bool     # True when only the layout-corrected form matched
 
 
 @dataclass(slots=True)
@@ -90,7 +99,7 @@ class AuthService:
             elif not user.is_active:
                 self._record_login(session, user.id, username, False, "inactive")
                 error = AuthenticationError("Account is disabled.")
-            elif not verify_password(password, user.password_hash):
+            elif not (match := self._match_password(password, user.password_hash)).matched:
                 error = self._register_failure(session, user, username, now)
             else:
                 user.failed_login_count = 0
@@ -105,7 +114,11 @@ class AuthService:
                     permissions=frozenset(user.all_permission_codes()),
                     must_change_password=user.must_change_password,
                 )
-                self._record_login(session, user.id, username, True, None)
+                if match.recovered:
+                    log.info("Password for '%s' matched only after correcting for "
+                             "the Persian keyboard layout.", username)
+                self._record_login(session, user.id, username, True,
+                                   "layout_recovered" if match.recovered else None)
 
         if error is not None:
             raise error
@@ -125,7 +138,7 @@ class AuthService:
             )
         with self._db.unit_of_work() as session:
             user = UserRepository(session).get_or_raise(user_id)
-            if not verify_password(current, user.password_hash):
+            if not self._match_password(current, user.password_hash).matched:
                 raise AuthenticationError("Current password is incorrect.")
             user.password_hash = hash_password(new)
             user.must_change_password = False
@@ -136,6 +149,29 @@ class AuthService:
         current_permissions.set(frozenset())
 
     # -- internals ----------------------------------------------------------
+    @staticmethod
+    def _match_password(password: str, password_hash: str) -> _Match:
+        """Verify ``password``, forgiving a wrong-keyboard-layout slip.
+
+        Clinic machines carry both a US and a Persian Windows layout. With the
+        Persian one active the operator types ``Amin2026`` but the masked field
+        receives ``َئهد2026`` — indistinguishable, to them, from a correct
+        entry. So a failed check is retried once against the layout-corrected
+        reading of the very same keystrokes.
+
+        This is not a security relaxation: the retry tests one specific
+        alternate *rendering* of the keys already pressed, not an additional
+        guess. ASCII-only input is never rewritten, so a correctly typed
+        password takes exactly one comparison.
+        """
+        if verify_password(password, password_hash):
+            return _Match(True, False)
+        if has_persian_layout_chars(password):
+            corrected = from_persian_layout(password)
+            if corrected != password and verify_password(corrected, password_hash):
+                return _Match(True, True)
+        return _Match(False, False)
+
     def _register_failure(self, session, user: User, username, now) -> AuthenticationError:
         """Record a bad password and return the error the caller should raise.
 

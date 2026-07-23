@@ -170,6 +170,10 @@
         <source>Invalid username or password. {n} tries left before lock.</source>
         <translation>کارن نوم یا پټنوم ناسم دی. د بندېدو نه مخکې {n} هڅې پاتې دي.</translation>
     </message>
+    <message>
+        <source>Your keyboard is in Persian. Press Alt+Shift to switch to English.</source>
+        <translation>ستاسو کیبورد پر فارسي دی. انګلیسي ته د بدلولو لپاره Alt+Shift کېکاږئ.</translation>
+    </message>
 </context>
 <context>
     <name>ChangePasswordDialog</name>
@@ -196,6 +200,10 @@
     <message>
         <source>Passwords do not match.</source>
         <translation>پټنومونه سره نه لګیږي.</translation>
+    </message>
+    <message>
+        <source>The new password contains Persian characters, so your keyboard is in Persian mode. Press Alt+Shift to switch to English, then type the password again.</source>
+        <translation>نوی پټنوم فارسي توري لري، یعنې ستاسو کیبورد پر فارسي حالت دی. په Alt+Shift سره انګلیسي ته بدل کړئ، بیا پټنوم بیا ولیکئ.</translation>
     </message>
     <message>
         <source>Password must be at least 8 characters.</source>

@@ -170,6 +170,10 @@
         <source>Invalid username or password. {n} tries left before lock.</source>
         <translation>نام کاربری یا رمز عبور نادرست است. {n} تلاش تا قفل‌شدن حساب باقی مانده است.</translation>
     </message>
+    <message>
+        <source>Your keyboard is in Persian. Press Alt+Shift to switch to English.</source>
+        <translation>کیبورد شما روی فارسی است. برای تغییر به انگلیسی، Alt+Shift را فشار دهید.</translation>
+    </message>
 </context>
 <context>
     <name>ChangePasswordDialog</name>
@@ -196,6 +200,10 @@
     <message>
         <source>Passwords do not match.</source>
         <translation>رمزها مطابقت ندارند.</translation>
+    </message>
+    <message>
+        <source>The new password contains Persian characters, so your keyboard is in Persian mode. Press Alt+Shift to switch to English, then type the password again.</source>
+        <translation>رمز جدید حاوی حروف فارسی است، یعنی کیبورد شما روی حالت فارسی قرار دارد. با Alt+Shift به انگلیسی تغییر دهید و سپس رمز را دوباره تایپ کنید.</translation>
     </message>
     <message>
         <source>Password must be at least 8 characters.</source>

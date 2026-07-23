@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from mediflow.core.exceptions import MediFlowError
+from mediflow.core.keyboard import has_persian_layout_chars
 from mediflow.core.security import MIN_PASSWORD_LENGTH
 from mediflow.services.auth_service import AuthService
 
@@ -103,6 +104,20 @@ class ChangePasswordDialog(QDialog):
         if len(new) < MIN_PASSWORD_LENGTH:
             QMessageBox.warning(self, self.tr("Change password"),
                                 self.tr("Password must be at least 8 characters."))
+            return
+        # Refuse to store a password typed on the Persian layout: it would be
+        # unenterable later and is the exact trap that locked this account out
+        # repeatedly. Warn rather than silently rewriting the chosen secret.
+        if has_persian_layout_chars(new):
+            QMessageBox.warning(
+                self, self.tr("Change password"),
+                self.tr("The new password contains Persian characters, so your "
+                        "keyboard is in Persian mode. Press Alt+Shift to switch "
+                        "to English, then type the password again."),
+            )
+            self._new.clear()
+            self._confirm.clear()
+            self._new.setFocus()
             return
         try:
             self._auth.change_password(self._user_id, self._current.text(), new)
