@@ -290,7 +290,10 @@ class LoginDialog(QDialog):
             self._password.clear()
             self._password.setFocus()
         else:
-            self._remember_username(username)
+            # The account's real username, not the typed text: if the layout
+            # was wrong, the typed text is mojibake and pre-filling it next
+            # launch would make the failure sticky across sessions.
+            self._remember_username(self.user.username)
             self.accept()
 
     def _show_bad_credentials(self, remaining: int | None) -> None:

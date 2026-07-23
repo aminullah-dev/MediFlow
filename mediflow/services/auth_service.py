@@ -45,6 +45,9 @@ class _Match(NamedTuple):
 
     matched: bool
     recovered: bool     # True when only the layout-corrected form matched
+    effective: str = ""  # the exact string that verified — never the raw input
+    #                      when recovery kicked in, so a transparent rehash can
+    #                      never re-store an unenterable Persian password.
 
 
 @dataclass(slots=True)
@@ -80,6 +83,16 @@ class AuthService:
         with self._db.unit_of_work() as session:
             repo = UserRepository(session)
             user = repo.get_by_username(username)
+            if user is None and has_persian_layout_chars(username):
+                # Same layout slip as the password, but on the username: "admin"
+                # typed under the Persian layout arrives as "شیئهد". Retry the
+                # lookup with the corrected reading and adopt it, so the login
+                # history records the real account rather than the mojibake.
+                corrected = from_persian_layout(username)
+                if corrected != username:
+                    user = repo.get_by_username(corrected)
+                    if user is not None:
+                        username = corrected
             now = utcnow()  # one snapshot for every time comparison below
 
             # A lock whose window has elapsed is cleared here, so the user gets
@@ -106,7 +119,10 @@ class AuthService:
                 user.locked_until = None
                 user.last_login_at = utcnow()
                 if needs_rehash(user.password_hash):
-                    user.password_hash = hash_password(password)
+                    # match.effective, NOT the raw input: after a layout
+                    # recovery the raw input is the Persian rendering, and
+                    # re-storing that would lock the account out for good.
+                    user.password_hash = hash_password(match.effective)
                 snapshot = AuthenticatedUser(
                     id=user.id,
                     username=user.username,
@@ -165,12 +181,12 @@ class AuthService:
         password takes exactly one comparison.
         """
         if verify_password(password, password_hash):
-            return _Match(True, False)
+            return _Match(True, False, password)
         if has_persian_layout_chars(password):
             corrected = from_persian_layout(password)
             if corrected != password and verify_password(corrected, password_hash):
-                return _Match(True, True)
-        return _Match(False, False)
+                return _Match(True, True, corrected)
+        return _Match(False, False, "")
 
     def _register_failure(self, session, user: User, username, now) -> AuthenticationError:
         """Record a bad password and return the error the caller should raise.

@@ -151,6 +151,51 @@ def test_correct_password_still_authenticates(db, admin_password):
     assert user.username == DEFAULT_ADMIN_USERNAME
 
 
+def test_username_typed_on_persian_layout_still_finds_the_account(db, admin_password):
+    """'admin' typed under the Persian layout arrives as 'شیئهد'."""
+    from mediflow.core.security import hash_password
+
+    auth = AuthService(db)
+    with db.unit_of_work() as session:
+        user = UserRepository(session).get_by_username(DEFAULT_ADMIN_USERNAME)
+        user.password_hash = hash_password("Amin2026")
+        user.must_change_password = False
+
+    typed_username = "شیئهد"                       # == from_persian_layout -> admin
+    assert from_persian_layout(typed_username) == DEFAULT_ADMIN_USERNAME
+
+    signed_in = auth.authenticate(typed_username, AS_TYPED_ON_PERSIAN["Amin2026"])
+    assert signed_in.username == DEFAULT_ADMIN_USERNAME
+
+
+def test_transparent_rehash_never_stores_the_persian_rendering(db, admin_password, monkeypatch):
+    """Regression: a rehash after a recovered login must store the CORRECTED
+    password. Storing the raw Persian input would lock the account out for good
+    — the very bug this module exists to prevent."""
+    from mediflow.core import security as security_module
+    from mediflow.services import auth_service as auth_module
+    from mediflow.core.security import hash_password, verify_password
+
+    with db.unit_of_work() as session:
+        user = UserRepository(session).get_by_username(DEFAULT_ADMIN_USERNAME)
+        user.password_hash = hash_password("Amin2026")
+        user.must_change_password = False
+
+    # Force the rehash path that is dormant today but arms itself the moment
+    # the PBKDF2 round count is raised.
+    monkeypatch.setattr(auth_module, "needs_rehash", lambda _hash: True)
+
+    auth = AuthService(db)
+    auth.authenticate(DEFAULT_ADMIN_USERNAME, AS_TYPED_ON_PERSIAN["Amin2026"])
+
+    with db.unit_of_work() as session:
+        user = UserRepository(session).get_by_username(DEFAULT_ADMIN_USERNAME)
+        assert verify_password("Amin2026", user.password_hash), (
+            "rehash stored the Persian rendering; the account is now unenterable")
+        assert not verify_password(
+            AS_TYPED_ON_PERSIAN["Amin2026"], user.password_hash)
+
+
 def test_change_password_accepts_layout_slipped_current_password(db, admin_password):
     """Even the change-password flow must forgive the slip on the old password."""
     auth = AuthService(db)
