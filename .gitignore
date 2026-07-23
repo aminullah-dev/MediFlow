@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+dist_installer/
+.venv*/
+.uv-python/
+venv/
+.pytest_cache/
+
+# MediFlow runtime data (never commit real clinic data)
+*.db
+*.db-shm
+*.db-wal
+/data_store/
+/backups/
+/logs/
+*.log
+.secret_key
+
+# Qt compiled translations (regenerated from .ts)
+*.qm
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
