@@ -4,7 +4,7 @@
 ; (paths below are relative to this .iss file, i.e. the packaging\ folder).
 
 #define MyAppName "MediFlow"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.2.0"
 #define MyAppPublisher "MediFlow"
 #define MyAppExeName "MediFlow.exe"
 
