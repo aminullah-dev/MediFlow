@@ -1,0 +1,5 @@
+# Qt compiled translation catalogues are binary artifacts. Mark them explicitly
+# so no clone (e.g. Windows with core.autocrlf=true) ever applies end-of-line
+# conversion to them — a single rewritten byte silently breaks the .qm loader
+# and the UI would fall back to untranslated English source strings.
+*.qm binary

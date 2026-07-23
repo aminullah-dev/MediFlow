@@ -21,8 +21,11 @@ venv/
 *.log
 .secret_key
 
-# Qt compiled translations (regenerated from .ts)
+# Qt compiled translations. The shipped .qm files ARE committed so a fresh
+# clone runs in Dari/Pashto without needing pyside6-lrelease; regenerate them
+# after editing a .ts:  pyside6-lrelease <name>.ts -qm <name>.qm
 *.qm
+!mediflow/i18n/translations/*.qm
 
 # OS / IDE
 .DS_Store
