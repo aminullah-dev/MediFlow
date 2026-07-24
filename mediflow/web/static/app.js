@@ -79,3 +79,59 @@
     }
   });
 })();
+
+// Invoice builder: add/remove line rows and keep the totals live. The server
+// recomputes everything on submit — this is only so the cashier sees the
+// amount before committing, never the source of truth.
+(function () {
+  "use strict";
+  var form = document.getElementById("invoiceForm");
+  if (!form) return;
+
+  var rows = document.getElementById("lineRows");
+  var addBtn = document.getElementById("addLine");
+  var num = function (v) { var n = parseFloat(v); return isFinite(n) ? n : 0; };
+  var fmt = function (n) { return Math.round(n).toString(); };
+
+  function recalc() {
+    var subtotal = 0;
+    Array.prototype.forEach.call(rows.querySelectorAll(".line-row"), function (row) {
+      var qty = num(row.querySelector(".qty").value) || 0;
+      var price = num(row.querySelector(".price").value);
+      var line = qty * price;
+      subtotal += line;
+      row.querySelector(".line-total").textContent = fmt(line);
+    });
+    var discount = num(document.getElementById("discount").value);
+    var tax = num(document.getElementById("tax").value);
+    document.getElementById("sumSubtotal").textContent = fmt(subtotal);
+    document.getElementById("sumDiscount").textContent = fmt(discount);
+    document.getElementById("sumTax").textContent = fmt(tax);
+    document.getElementById("sumTotal").textContent = fmt(subtotal - discount + tax);
+  }
+
+  addBtn.addEventListener("click", function () {
+    var copy = rows.querySelector(".line-row").cloneNode(true);
+    Array.prototype.forEach.call(copy.querySelectorAll("input"), function (i) {
+      i.value = i.classList.contains("qty") ? "1" : "";
+    });
+    copy.querySelector(".line-total").textContent = "0";
+    rows.appendChild(copy);
+  });
+
+  rows.addEventListener("click", function (e) {
+    if (!e.target.closest(".remove-line")) return;
+    // Always leave one row, otherwise "add" has nothing to clone from.
+    if (rows.querySelectorAll(".line-row").length > 1) {
+      e.target.closest(".line-row").remove();
+    } else {
+      Array.prototype.forEach.call(rows.querySelectorAll("input"), function (i) {
+        i.value = i.classList.contains("qty") ? "1" : "";
+      });
+    }
+    recalc();
+  });
+
+  form.addEventListener("input", recalc);
+  recalc();
+})();

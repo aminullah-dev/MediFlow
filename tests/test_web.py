@@ -396,3 +396,85 @@ def test_low_stock_raises_an_alert_on_the_list(client):
     client.post(f"/pharmacy/{mid}/stock", data={"quantity": "25"})
     client.post(f"/pharmacy/{mid}/dispense", data={"quantity": "10"})
     assert "رو به اتمام" in client.get("/pharmacy").text
+
+
+# -- billing ----------------------------------------------------------------
+def _invoice(client, pid, **over):
+    data = {"patient_id": str(pid),
+            "line_description": ["معاینه داکتر", "لابراتوار", ""],
+            "line_quantity": ["1", "2", "1"],
+            "line_unit_price": ["500", "250", ""],
+            "discount": "100", "tax": "50"}
+    data.update(over)
+    r = client.post("/billing/new", data=data, follow_redirects=False)
+    assert r.status_code == 303, r.text[:400]
+    return int(r.headers["location"].rsplit("/", 1)[-1])
+
+
+def test_invoice_totals_are_computed_from_the_lines(client):
+    """500x1 + 250x2 = 1000, minus 100 discount, plus 50 tax = 950."""
+    pid = _new_patient(client)
+    detail = client.get(f"/billing/{_invoice(client, pid)}").text
+    assert "1000" in detail
+    assert "950" in detail
+    assert "پرداخت‌نشده" in detail
+
+
+def test_blank_line_rows_are_ignored(client):
+    """The form ships spare rows; a half-filled one must not become a charge."""
+    pid = _new_patient(client)
+    detail = client.get(f"/billing/{_invoice(client, pid)}").text
+    assert detail.count("معاینه داکتر") == 1
+
+
+def test_partial_then_full_payment_moves_the_status(client):
+    pid = _new_patient(client)
+    iid = _invoice(client, pid)
+
+    client.post(f"/billing/{iid}/payment", data={"amount": "400", "method": "cash"})
+    detail = client.get(f"/billing/{iid}").text
+    assert "پرداخت جزئی" in detail
+    assert "550" in detail, "balance = 950 - 400"
+    assert "نقد" in detail
+
+    client.post(f"/billing/{iid}/payment", data={"amount": "550", "method": "card"})
+    detail = client.get(f"/billing/{iid}").text
+    assert "پرداخت‌شده" in detail
+    assert "ثبت پرداخت" not in detail, "payment form should disappear once settled"
+
+
+def test_overpayment_is_refused_with_a_localised_amount(client):
+    pid = _new_patient(client)
+    iid = _invoice(client, pid)
+    r = client.post(f"/billing/{iid}/payment", data={"amount": "9999", "method": "cash"})
+    assert r.status_code == 400
+    assert "بیشتر است" in r.text
+
+
+def test_an_invoice_needs_at_least_one_line(client):
+    pid = _new_patient(client)
+    r = client.post("/billing/new", data={"patient_id": str(pid),
+                    "line_description": [""], "line_quantity": ["1"],
+                    "line_unit_price": ["0"]})
+    assert r.status_code == 400
+    assert "حداقل یک قلم" in r.text
+
+
+def test_discount_cannot_exceed_the_subtotal(client):
+    pid = _new_patient(client)
+    r = client.post("/billing/new", data={"patient_id": str(pid),
+                    "line_description": ["x"], "line_quantity": ["1"],
+                    "line_unit_price": ["10"], "discount": "9999"})
+    assert r.status_code == 400
+    assert "تخفیف" in r.text
+
+
+def test_a_cancelled_invoice_cannot_be_paid(client):
+    pid = _new_patient(client)
+    iid = _invoice(client, pid)
+    client.post(f"/billing/{iid}/cancel")
+    assert "لغو شده" in client.get(f"/billing/{iid}").text
+
+    r = client.post(f"/billing/{iid}/payment", data={"amount": "10", "method": "cash"})
+    assert r.status_code == 400
+    assert "لغو" in r.text

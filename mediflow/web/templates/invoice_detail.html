@@ -1,0 +1,98 @@
+{% extends "_shell.html" %}
+{% set active = 'billing' %}
+{% set inv = d.invoice %}
+{% block title %}{{ inv.invoice_number }} — صورتحساب{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">صورتحساب <span class="mono">{{ inv.invoice_number }}</span></h1>
+    <p class="page-sub">
+      <a href="/patients/{{ inv.patient_id }}">{{ inv.patient_name }}</a>
+      · <span class="mono">{{ inv.mrn }}</span>
+      · {{ inv.issued_at.date() }}
+      · <span class="status status-inv-{{ inv.status }}">{{ status_fa.get(inv.status, inv.status) }}</span>
+    </p>
+  </div>
+  <div class="head-actions">
+    <button class="btn-ghost btn-inline" type="button" onclick="window.print()">چاپ</button>
+    <a class="btn-ghost btn-inline" href="/billing">بازگشت</a>
+  </div>
+</div>
+
+{% if request.query_params.get('paid') %}<p class="banner ok">پرداخت ثبت شد.</p>{% endif %}
+{% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
+
+<section class="card record-card">
+  <h2 class="section-title">اقلام</h2>
+  <div class="table-wrap flush">
+    <table class="table">
+      <thead><tr><th>شرح</th><th>تعداد</th><th>قیمت واحد</th><th>جمع</th></tr></thead>
+      <tbody>
+        {% for l in d.lines %}
+        <tr>
+          <td>{{ l.description }}</td>
+          <td class="mono">{{ l.quantity }}</td>
+          <td class="mono">{{ '%.0f' % l.unit_price }}</td>
+          <td class="mono">{{ '%.0f' % l.line_total }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="totals-box">
+    <div><span>جمع اقلام</span><strong class="mono">{{ '%.0f' % d.subtotal }}</strong></div>
+    <div><span>تخفیف</span><strong class="mono">{{ '%.0f' % d.discount }}</strong></div>
+    <div><span>مالیه</span><strong class="mono">{{ '%.0f' % d.tax }}</strong></div>
+    <div class="grand"><span>مجموع</span><strong class="mono">{{ '%.0f' % inv.total }}</strong></div>
+    <div><span>پرداخت‌شده</span><strong class="mono">{{ '%.0f' % inv.paid_amount }}</strong></div>
+    <div class="grand"><span>باقی‌مانده</span>
+      <strong class="mono {% if inv.balance > 0 %}owing{% endif %}">{{ '%.0f' % inv.balance }}</strong></div>
+  </div>
+  {% if d.notes %}<p class="field-hint">یادداشت: {{ d.notes }}</p>{% endif %}
+</section>
+
+<section class="card record-card">
+  <h2 class="section-title">پرداخت‌ها <span class="count">{{ d.payments | length }}</span></h2>
+  {% if d.payments %}
+  <ul class="record-list">
+    {% for p in d.payments %}
+    <li>
+      <div>
+        <strong class="mono">{{ '%.0f' % p.amount }}</strong>
+        <span class="tag">{{ method_fa.get(p.method, p.method) }}</span>
+        <span class="meta">{{ p.paid_at.date() }}</span>
+        {% if p.reference %}<span class="meta">مرجع: {{ p.reference }}</span>{% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="queue-empty">هنوز پرداختی ثبت نشده است.</p>
+  {% endif %}
+
+  {% if user.can('billing.payment') and inv.is_open %}
+  <form class="inline-form" method="post" action="/billing/{{ inv.id }}/payment">
+    <input class="field narrow" name="amount" type="number" step="0.01" min="0.01"
+           max="{{ inv.balance }}" value="{{ '%.0f' % inv.balance }}" required
+           placeholder="مبلغ *">
+    <select class="field narrow" name="method">
+      {% for value, label in methods %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+    </select>
+    <input class="field narrow" name="reference" placeholder="مرجع (اختیاری)">
+    <button class="btn-mini ok" type="submit">ثبت پرداخت</button>
+  </form>
+  <p class="field-hint">مبلغ پیش‌فرض، تسویه کامل است. برای پرداخت جزئی عدد را تغییر دهید.</p>
+  {% elif inv.status == 'paid' %}
+  <p class="field-hint">این صورتحساب کاملاً تسویه شده است.</p>
+  {% endif %}
+</section>
+
+{% if inv.is_open and (user.can('billing.create') or user.can('billing.refund')) %}
+<form class="danger-zone" method="post" action="/billing/{{ inv.id }}/cancel"
+      onsubmit="return confirm('این صورتحساب لغو شود؟ بعد از لغو قابل پرداخت نیست.');">
+  <button class="btn-ghost danger" type="submit">لغو صورتحساب</button>
+</form>
+{% endif %}
+{% endblock %}

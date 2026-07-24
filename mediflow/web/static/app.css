@@ -401,3 +401,44 @@ a.stat:hover { border-color: var(--primary); }
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 .inline-form.no-rule { border-top: 0; padding-top: 0; }
+
+/* ---- billing ----------------------------------------------------------- */
+.status-inv-unpaid         { background: #3a2f0e; color: #e0a93a; }
+.status-inv-partially_paid { background: #0e2a3a; color: #4aa8e0; }
+.status-inv-paid           { background: #10331c; color: #37c26a; }
+.status-inv-draft          { background: var(--surface-alt); color: var(--muted); }
+.status-inv-cancelled,
+.status-inv-refunded       { background: var(--danger-soft); color: var(--danger); }
+
+.owing { color: var(--warn); font-weight: 700; }
+
+.lines-table .w-qty   { width: 110px; }
+.lines-table .w-price { width: 150px; }
+.lines-table .w-total { width: 110px; }
+.lines-table .field { min-width: 90px; }
+.lines-table td { vertical-align: middle; }
+
+.section-title.spaced { margin-top: 20px; }
+.grid-2.spaced { margin-top: 16px; }
+
+.totals-box {
+  margin-top: 16px; padding: 14px 16px;
+  background: var(--surface-alt); border: 1px solid var(--border);
+  border-radius: 10px; max-width: 360px; margin-inline-start: auto;
+}
+.totals-box div { display: flex; justify-content: space-between; gap: 20px; padding: 3px 0; }
+.totals-box span { color: var(--muted); }
+.totals-box .grand {
+  border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px;
+}
+.totals-box .grand strong { font-size: 18px; color: var(--primary); }
+
+/* Printed invoices should carry the figures, not the app chrome. */
+@media print {
+  .topbar, .head-actions, .inline-form, .danger-zone, .banner { display: none !important; }
+  body { background: #fff; color: #000; }
+  .card, .table-wrap { border-color: #999; background: #fff; }
+  .page { padding: 0; }
+  .table thead th, .totals-box { background: #f2f2f2; color: #000; }
+  .mono, .status { color: #000 !important; }
+}

@@ -1,0 +1,82 @@
+{% extends "_shell.html" %}
+{% set active = 'billing' %}
+{% block title %}صورتحساب جدید — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><h1 class="page-title">صدور صورتحساب</h1></div>
+  <a class="btn-ghost btn-inline" href="/billing">بازگشت</a>
+</div>
+
+{% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
+
+<form class="card form-card" method="post" action="/billing/new" id="invoiceForm">
+  <label class="field-label" for="patient_id">بیمار <span class="req">*</span></label>
+  <select class="field" id="patient_id" name="patient_id" required>
+    <option value="">— انتخاب بیمار —</option>
+    {% for p in patients %}
+    <option value="{{ p.id }}"
+      {% if (form and form.get('patient_id')|int == p.id) or (preselect_patient == p.id) %}selected{% endif %}>
+      {{ p.full_name }} — {{ p.mrn }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <h2 class="section-title spaced">اقلام</h2>
+  <div class="table-wrap flush">
+    <table class="table lines-table">
+      <thead>
+        <tr><th>شرح</th><th class="w-qty">تعداد</th><th class="w-price">قیمت واحد</th>
+            <th class="w-total">جمع</th><th></th></tr>
+      </thead>
+      <tbody id="lineRows">
+        {% set descs = form.getlist('line_description') if form else [] %}
+        {% set qtys  = form.getlist('line_quantity') if form else [] %}
+        {% set prices = form.getlist('line_unit_price') if form else [] %}
+        {% for i in range(descs | length if descs else 3) %}
+        <tr class="line-row">
+          <td><input class="field" name="line_description"
+                     value="{{ descs[i] if descs and i < descs|length else '' }}"
+                     placeholder="مثلاً معاینه داکتر"></td>
+          <td><input class="field qty" name="line_quantity" type="number" min="1"
+                     value="{{ qtys[i] if qtys and i < qtys|length else 1 }}"></td>
+          <td><input class="field price" name="line_unit_price" type="number" step="0.01" min="0"
+                     value="{{ prices[i] if prices and i < prices|length else '' }}"></td>
+          <td class="mono line-total">0</td>
+          <td><button class="btn-mini danger remove-line" type="button" title="حذف سطر">×</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <button class="btn-mini" type="button" id="addLine">+ افزودن سطر</button>
+  <p class="field-hint">سطرهای بدون شرح نادیده گرفته می‌شوند.</p>
+
+  <div class="grid-2 spaced">
+    <div>
+      <label class="field-label" for="discount">تخفیف</label>
+      <input class="field" id="discount" name="discount" type="number" step="0.01" min="0"
+             value="{{ form.get('discount') if form else '0' }}">
+    </div>
+    <div>
+      <label class="field-label" for="tax">مالیه</label>
+      <input class="field" id="tax" name="tax" type="number" step="0.01" min="0"
+             value="{{ form.get('tax') if form else '0' }}">
+    </div>
+  </div>
+
+  <div class="totals-box">
+    <div><span>جمع اقلام</span><strong class="mono" id="sumSubtotal">0</strong></div>
+    <div><span>تخفیف</span><strong class="mono" id="sumDiscount">0</strong></div>
+    <div><span>مالیه</span><strong class="mono" id="sumTax">0</strong></div>
+    <div class="grand"><span>قابل پرداخت</span><strong class="mono" id="sumTotal">0</strong></div>
+  </div>
+
+  <label class="field-label" for="notes">یادداشت</label>
+  <textarea class="field" id="notes" name="notes" rows="2">{{ form.get('notes') if form else '' }}</textarea>
+
+  <div class="form-actions">
+    <button class="btn-primary" type="submit">صدور صورتحساب</button>
+  </div>
+</form>
+{% endblock %}

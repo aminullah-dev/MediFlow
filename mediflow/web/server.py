@@ -27,7 +27,13 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from mediflow.app import build_container
 from mediflow.core.config import Config
-from mediflow.core.constants import AppointmentStatus, BloodGroup, Gender
+from mediflow.core.constants import (
+    AppointmentStatus,
+    BloodGroup,
+    Gender,
+    InvoiceStatus,
+    PaymentMethod,
+)
 from mediflow.core.exceptions import (
     AccountLockedError,
     AuthenticationError,
@@ -39,6 +45,7 @@ from mediflow.core.logging_config import configure_logging, get_logger
 from mediflow.data.database import current_permissions, current_user_id
 from mediflow.services.dashboard_service import DashboardService
 from mediflow.services.appointment_service import AppointmentBooking
+from mediflow.services.billing_service import InvoiceInput, LineInput
 from mediflow.services.patient_service import PatientRegistration
 from mediflow.services.pharmacy_service import MedicationInput
 from mediflow.services.user_service import UserInput
@@ -253,6 +260,57 @@ _ERROR_FA.update({
     "Medication not found.": "دارو یافت نشد.",
     "Medication name is required.": "نام دارو الزامی است.",
 })
+
+
+INVOICE_STATUS_FA = {
+    InvoiceStatus.DRAFT.value: "پیش‌نویس",
+    InvoiceStatus.UNPAID.value: "پرداخت‌نشده",
+    InvoiceStatus.PARTIALLY_PAID.value: "پرداخت جزئی",
+    InvoiceStatus.PAID.value: "پرداخت‌شده",
+    InvoiceStatus.REFUNDED.value: "مسترد شده",
+    InvoiceStatus.CANCELLED.value: "لغو شده",
+}
+
+PAYMENT_METHOD_FA = {
+    PaymentMethod.CASH.value: "نقد",
+    PaymentMethod.CARD.value: "کارت",
+    PaymentMethod.BANK_TRANSFER.value: "حواله بانکی",
+    PaymentMethod.MOBILE_MONEY.value: "پول موبایل",
+}
+PAYMENT_METHODS = [(m.value, PAYMENT_METHOD_FA[m.value]) for m in PaymentMethod]
+
+_ERROR_FA.update({
+    "Add at least one line item.": "حداقل یک قلم به صورتحساب اضافه کنید.",
+    "Discount cannot exceed the subtotal.": "تخفیف نمی‌تواند از جمع کل بیشتر باشد.",
+    "Payment amount must be positive.": "مبلغ پرداخت باید بیشتر از صفر باشد.",
+    "Invoice not found.": "صورتحساب یافت نشد.",
+    "Cannot pay a cancelled invoice.": "صورتحساب لغو‌شده قابل پرداخت نیست.",
+})
+
+_ERROR_PATTERNS_FA.append(
+    (re.compile(r"^Payment exceeds the outstanding balance \(([\d.]+)\)\.$"),
+     "مبلغ پرداخت از باقی‌مانده ({0}) بیشتر است."))
+
+
+def _lines_from(form) -> list[LineInput]:
+    """Rebuild the invoice lines from the parallel form arrays.
+
+    Rows are posted as three same-length lists; blank descriptions are dropped
+    by the service, so a half-filled extra row costs nothing.
+    """
+    descriptions = form.getlist("line_description")
+    quantities = form.getlist("line_quantity")
+    prices = form.getlist("line_unit_price")
+    lines: list[LineInput] = []
+    for index, description in enumerate(descriptions):
+        if not (description or "").strip():
+            continue
+        lines.append(LineInput(
+            description=description.strip(),
+            quantity=int(quantities[index] or 1) if index < len(quantities) else 1,
+            unit_price=float(prices[index] or 0) if index < len(prices) else 0.0,
+        ))
+    return lines
 
 
 def _medication_from(form) -> MedicationInput:
@@ -759,6 +817,116 @@ def create_app(config: Config | None = None) -> FastAPI:
         except MediFlowError:
             log.exception("Complete failed for appointment %s", appointment_id)
         return RedirectResponse("/reception", status_code=303)
+
+    # -- billing ------------------------------------------------------------
+    @app.get("/billing", response_class=HTMLResponse)
+    def billing_list(request: Request, q: str = ""):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("billing.view"):
+            return _deny(request, user)
+        term = (q or "").strip()
+        invoices = container.billing.list_invoices(term)
+        return TEMPLATES.TemplateResponse(request, "billing.html", {
+            "user": user, "invoices": invoices, "q": term,
+            "status_fa": INVOICE_STATUS_FA,
+            "outstanding": round(sum(i.balance for i in invoices if i.is_open), 2),
+            "open_count": sum(1 for i in invoices if i.is_open),
+        })
+
+    @app.get("/billing/new", response_class=HTMLResponse)
+    def invoice_new_form(request: Request, patient_id: int | None = None):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("billing.create"):
+            return _deny(request, user)
+        return TEMPLATES.TemplateResponse(request, "invoice_form.html", {
+            "user": user, "error": None, "form": None,
+            "patients": container.patients.list_recent(limit=500),
+            "preselect_patient": patient_id,
+        })
+
+    @app.post("/billing/new", response_class=HTMLResponse)
+    async def invoice_create(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("billing.create"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            if not form.get("patient_id"):
+                raise ValidationError("بیمار را انتخاب کنید.", field="patient_id")
+            invoice_id = container.billing.create_invoice(InvoiceInput(
+                patient_id=int(form["patient_id"]),
+                lines=_lines_from(form),
+                discount=float(form.get("discount") or 0),
+                tax=float(form.get("tax") or 0),
+                notes=_clean(form, "notes"),
+            ))
+        except (MediFlowError, ValueError) as exc:
+            return TEMPLATES.TemplateResponse(request, "invoice_form.html", {
+                "user": user, "error": _fa_error(exc), "form": form,
+                "patients": container.patients.list_recent(limit=500),
+                "preselect_patient": None,
+            }, status_code=400)
+        return RedirectResponse(f"/billing/{invoice_id}", status_code=303)
+
+    @app.get("/billing/{invoice_id}", response_class=HTMLResponse)
+    def invoice_detail(request: Request, invoice_id: int, error: str | None = None):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("billing.view"):
+            return _deny(request, user)
+        try:
+            detail = container.billing.get_detail(invoice_id)
+        except MediFlowError:
+            return _deny(request, user, "صورتحساب یافت نشد.")
+        return TEMPLATES.TemplateResponse(request, "invoice_detail.html", {
+            "user": user, "d": detail, "error": error,
+            "status_fa": INVOICE_STATUS_FA, "methods": PAYMENT_METHODS,
+            "method_fa": PAYMENT_METHOD_FA,
+        })
+
+    @app.post("/billing/{invoice_id}/payment", response_class=HTMLResponse)
+    async def invoice_payment(request: Request, invoice_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("billing.payment"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            container.billing.add_payment(
+                invoice_id,
+                float(form.get("amount") or 0),
+                PaymentMethod(form.get("method") or PaymentMethod.CASH.value),
+                reference=_clean(form, "reference"),
+            )
+        except (MediFlowError, ValueError) as exc:
+            detail = container.billing.get_detail(invoice_id)
+            return TEMPLATES.TemplateResponse(request, "invoice_detail.html", {
+                "user": user, "d": detail, "error": _fa_error(exc),
+                "status_fa": INVOICE_STATUS_FA, "methods": PAYMENT_METHODS,
+                "method_fa": PAYMENT_METHOD_FA,
+            }, status_code=400)
+        return RedirectResponse(f"/billing/{invoice_id}?paid=1", status_code=303)
+
+    @app.post("/billing/{invoice_id}/cancel")
+    def invoice_cancel(request: Request, invoice_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not (user.can("billing.create") or user.can("billing.refund")):
+            return _deny(request, user)
+        try:
+            container.billing.cancel_invoice(invoice_id)
+        except MediFlowError:
+            log.exception("Cancelling invoice %s failed", invoice_id)
+        return RedirectResponse(f"/billing/{invoice_id}", status_code=303)
 
     # -- pharmacy -----------------------------------------------------------
     def _pharmacy_page(request: Request, user, **extra):

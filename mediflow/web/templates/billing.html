@@ -1,0 +1,65 @@
+{% extends "_shell.html" %}
+{% set active = 'billing' %}
+{% block title %}صورتحساب — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">صورتحساب</h1>
+    <p class="page-sub">{{ invoices | length }} صورتحساب</p>
+  </div>
+  {% if user.can('billing.create') %}
+  <a class="btn-primary btn-inline" href="/billing/new">+ صورتحساب جدید</a>
+  {% endif %}
+</div>
+
+{# The number a clinic manager opens this page to find. #}
+{% if open_count %}
+<section class="alert-row">
+  <div class="alert-box warn">
+    <span class="alert-count">{{ open_count }}</span>
+    <div><strong>صورتحساب باز</strong>
+      <span class="meta">باقی‌مانده: {{ '%.0f' % outstanding }} افغانی</span></div>
+  </div>
+</section>
+{% endif %}
+
+<form class="searchbar" method="get" action="/billing">
+  <input class="field" type="search" name="q" value="{{ q }}"
+         placeholder="جستجو با شماره صورتحساب، نام بیمار یا شماره پرونده…" autocomplete="off">
+  <button class="btn-ghost" type="submit">جستجو</button>
+  {% if q %}<a class="btn-ghost" href="/billing">پاک کردن</a>{% endif %}
+</form>
+
+{% if invoices %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>شماره</th><th>تاریخ</th><th>بیمار</th><th>شماره پرونده</th>
+          <th>مجموع</th><th>پرداخت‌شده</th><th>باقی‌مانده</th><th>وضعیت</th></tr>
+    </thead>
+    <tbody>
+      {% for i in invoices %}
+      <tr>
+        <td class="mono"><a href="/billing/{{ i.id }}">{{ i.invoice_number }}</a></td>
+        <td class="mono">{{ i.issued_at.date() }}</td>
+        <td><a href="/patients/{{ i.patient_id }}">{{ i.patient_name }}</a></td>
+        <td class="mono">{{ i.mrn }}</td>
+        <td class="mono">{{ '%.0f' % i.total }}</td>
+        <td class="mono">{{ '%.0f' % i.paid_amount }}</td>
+        <td class="mono {% if i.balance > 0 %}owing{% endif %}">{{ '%.0f' % i.balance }}</td>
+        <td><span class="status status-inv-{{ i.status }}">{{ status_fa.get(i.status, i.status) }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card empty">
+  <p>{% if q %}صورتحسابی با «{{ q }}» پیدا نشد.{% else %}هنوز صورتحسابی صادر نشده است.{% endif %}</p>
+  {% if user.can('billing.create') %}
+  <a class="btn-primary btn-inline" href="/billing/new">صدور صورتحساب</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
