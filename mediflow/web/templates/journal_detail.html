@@ -1,0 +1,49 @@
+{% extends "_shell.html" %}
+{% set active = 'accounting' %}
+{% set e = d.entry %}
+{% block title %}سند {{ e.entry_date }} — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ e.description }}</h1>
+    <p class="page-sub">
+      <span class="mono">{{ e.entry_date }}</span>
+      {% if e.reference %} · مرجع: <span class="mono">{{ e.reference }}</span>{% endif %}
+      · مبلغ: <span class="mono">{{ '%.0f' % e.amount }}</span>
+    </p>
+  </div>
+  <div class="head-actions">
+    <button class="btn-ghost btn-inline" type="button" onclick="window.print()">چاپ</button>
+    <a class="btn-ghost btn-inline" href="/accounting/journal">بازگشت</a>
+  </div>
+</div>
+
+<section class="card record-card">
+  <h2 class="section-title">سطرها</h2>
+  <div class="table-wrap flush">
+    <table class="table">
+      <thead><tr><th>کد</th><th>حساب</th><th>بدهکار</th><th>بستانکار</th><th>شرح</th></tr></thead>
+      <tbody>
+        {% for l in d.lines %}
+        <tr>
+          <td class="mono">{{ l.account_code }}</td>
+          <td>{{ l.account_name }}</td>
+          <td class="mono">{{ '%.0f' % l.debit if l.debit else '—' }}</td>
+          <td class="mono">{{ '%.0f' % l.credit if l.credit else '—' }}</td>
+          <td>{{ l.memo or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="totals-row">
+          <td colspan="2"><strong>جمع</strong></td>
+          <td class="mono"><strong>{{ '%.0f' % (d.lines | sum(attribute='debit')) }}</strong></td>
+          <td class="mono"><strong>{{ '%.0f' % (d.lines | sum(attribute='credit')) }}</strong></td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</section>
+{% endblock %}

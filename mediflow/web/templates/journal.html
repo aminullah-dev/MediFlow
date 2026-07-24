@@ -1,0 +1,43 @@
+{% extends "_shell.html" %}
+{% set active = 'accounting' %}
+{% block title %}دفتر روزنامه — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">دفتر روزنامه</h1>
+    <p class="page-sub">{{ entries | length }} سند</p>
+  </div>
+  <div class="head-actions">
+    {% if user.can('accounting.post') %}
+    <a class="btn-primary btn-inline" href="/accounting/journal/new">+ ثبت سند</a>
+    {% endif %}
+    <a class="btn-ghost btn-inline" href="/accounting">دفتر حساب‌ها</a>
+  </div>
+</div>
+
+{% if entries %}
+<div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>تاریخ</th><th>شرح</th><th>مرجع</th><th>مبلغ</th></tr></thead>
+    <tbody>
+      {% for e in entries %}
+      <tr>
+        <td class="mono">{{ e.entry_date }}</td>
+        <td><a href="/accounting/journal/{{ e.id }}">{{ e.description }}</a></td>
+        <td class="mono">{{ e.reference or '—' }}</td>
+        <td class="mono">{{ '%.0f' % e.amount }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card empty">
+  <p>هنوز سندی ثبت نشده است.</p>
+  {% if user.can('accounting.post') %}
+  <a class="btn-primary btn-inline" href="/accounting/journal/new">ثبت اولین سند</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

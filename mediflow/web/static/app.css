@@ -463,3 +463,8 @@ a.btn-mini { text-decoration: none; display: inline-block; }
 .notes-list { margin: 0; padding-inline-start: 20px; color: var(--muted); }
 .notes-list li { margin-bottom: 9px; line-height: 1.7; }
 .notes-list strong { color: var(--text); }
+
+/* ---- accounting -------------------------------------------------------- */
+.hint.balanced { color: var(--success, #37c26a); }
+.totals-row td { border-top: 2px solid var(--border); background: var(--surface-alt); }
+.lines-table .acct { min-width: 190px; }

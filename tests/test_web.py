@@ -615,3 +615,73 @@ def test_a_backup_can_be_deleted_with_its_hmac(client, tmp_path):
     assert "حذف شد" in r.text
     assert not (tmp_path / "backups" / name).exists()
     assert not (tmp_path / "backups" / name.replace(".db", ".hmac")).exists()
+
+
+# -- accounting -------------------------------------------------------------
+def _accounts(app):
+    return {a.code: a.id for a in app.state.container.accounting.list_accounts()}
+
+
+def _post_entry(client, app, debit="500", credit="500", description="دریافت وجه"):
+    codes = _accounts(app)
+    return client.post("/accounting/journal/new", data={
+        "entry_date": "2026-07-24", "description": description,
+        "line_account_id": [str(codes["1000"]), str(codes["4000"])],
+        "line_debit": [debit, ""], "line_credit": ["", credit],
+    }, follow_redirects=False)
+
+
+def test_chart_of_accounts_is_seeded_and_grouped(client):
+    page = client.get("/accounting").text
+    assert "Cash" in page and "1000" in page
+    assert "دارایی" in page and "درآمد" in page
+
+
+def test_a_balanced_entry_posts_and_shows_both_lines(client, app):
+    r = _post_entry(client, app)
+    assert r.status_code == 303
+    eid = int(r.headers["location"].rsplit("/", 1)[-1])
+    detail = client.get(f"/accounting/journal/{eid}").text
+    assert "Cash" in detail and "Consultation Income" in detail
+
+
+def test_an_unbalanced_entry_is_refused_with_both_figures(client, app):
+    """Double entry: the columns must match, and the message says by how much."""
+    r = _post_entry(client, app, debit="500", credit="300")
+    assert r.status_code == 400
+    assert "بدهکار" in r.text and "برابر باشد" in r.text
+
+
+def test_an_entry_needs_at_least_two_lines(client, app):
+    codes = _accounts(app)
+    r = client.post("/accounting/journal/new", data={
+        "entry_date": "2026-07-24", "description": "تک سطری",
+        "line_account_id": [str(codes["1000"])],
+        "line_debit": ["100"], "line_credit": [""]})
+    assert r.status_code == 400
+    assert "دو سطر" in r.text
+
+
+def test_an_entry_needs_a_description(client, app):
+    r = _post_entry(client, app, description="")
+    assert r.status_code == 400
+    assert "شرح سند" in r.text
+
+
+def test_a_duplicate_account_code_is_a_clean_error_not_a_crash(client):
+    """Regression: create_account relied on the UNIQUE constraint, so a repeat
+    code raised a raw SQLAlchemy IntegrityError — not a MediFlowError — and
+    surfaced as an unhandled 500."""
+    client.post("/accounting/accounts",
+                data={"code": "5400", "name": "مصرف ترانسپورت", "account_type": "expense"})
+    r = client.post("/accounting/accounts",
+                    data={"code": "5400", "name": "تکراری", "account_type": "expense"})
+    assert r.status_code == 200
+    assert "از قبل وجود دارد" in r.text
+    assert client.get("/accounting").text.count("5400") == 1
+
+
+def test_an_account_used_by_an_entry_cannot_be_deleted(client, app):
+    _post_entry(client, app)
+    cash = _accounts(app)["1000"]
+    assert "قابل حذف نیست" in client.post(f"/accounting/accounts/{cash}/delete").text

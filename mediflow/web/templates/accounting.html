@@ -1,0 +1,75 @@
+{% extends "_shell.html" %}
+{% set active = 'accounting' %}
+{% set can_post = user.can('accounting.post') %}
+{% block title %}حسابداری — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">حسابداری</h1>
+    <p class="page-sub">دفتر حساب‌ها</p>
+  </div>
+  <div class="head-actions">
+    <a class="btn-ghost btn-inline" href="/accounting/journal">دفتر روزنامه</a>
+    {% if can_post %}
+    <a class="btn-primary btn-inline" href="/accounting/journal/new">+ ثبت سند</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
+
+<section class="stat-grid">
+  <div class="stat"><span class="stat-value">{{ '%.0f' % summary.income }}</span><span class="stat-label">درآمد</span></div>
+  <div class="stat"><span class="stat-value">{{ '%.0f' % summary.expense }}</span><span class="stat-label">مصرف</span></div>
+  <div class="stat">
+    <span class="stat-value {{ 'owing' if summary.net < 0 }}">{{ '%.0f' % summary.net }}</span>
+    <span class="stat-label">سود / زیان خالص</span>
+  </div>
+</section>
+
+{% for type_value, label in types %}
+{% set rows = groups.get(type_value, []) %}
+{% if rows %}
+<section class="card record-card">
+  <h2 class="section-title">{{ label }} <span class="count">{{ rows | length }}</span></h2>
+  <div class="table-wrap flush">
+    <table class="table">
+      <thead><tr><th>کد</th><th>نام حساب</th><th>مانده</th>{% if can_post %}<th></th>{% endif %}</tr></thead>
+      <tbody>
+        {% for a in rows %}
+        <tr>
+          <td class="mono">{{ a.code }}</td>
+          <td>{{ a.name }}</td>
+          <td class="mono {{ 'owing' if a.balance < 0 }}">{{ '%.0f' % a.balance }}</td>
+          {% if can_post %}
+          <td>
+            <form method="post" action="/accounting/accounts/{{ a.id }}/delete"
+                  onsubmit="return confirm('حساب «{{ a.name }}» حذف شود؟');">
+              <button class="btn-mini danger" type="submit">حذف</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endfor %}
+
+{% if can_post %}
+<section class="card record-card">
+  <h2 class="section-title">افزودن حساب</h2>
+  <form class="inline-form no-rule" method="post" action="/accounting/accounts">
+    <input class="field narrow" name="code" placeholder="کد *" required>
+    <input class="field" name="name" placeholder="نام حساب *" required>
+    <select class="field narrow" name="account_type">
+      {% for value, label in types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+    </select>
+    <button class="btn-mini" type="submit">افزودن</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

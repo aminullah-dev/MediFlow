@@ -23,6 +23,9 @@
     {% if user.can('billing.view') %}
     <a href="/billing" class="{{ 'active' if active == 'billing' }}">صورتحساب</a>
     {% endif %}
+    {% if user.can('accounting.view') %}
+    <a href="/accounting" class="{{ 'active' if active == 'accounting' }}">حسابداری</a>
+    {% endif %}
     {% if user.can('user.view') %}
     <a href="/users" class="{{ 'active' if active == 'users' }}">کاربران</a>
     {% endif %}

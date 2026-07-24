@@ -1,0 +1,82 @@
+{% extends "_shell.html" %}
+{% set active = 'accounting' %}
+{% block title %}ثبت سند — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><h1 class="page-title">ثبت سند</h1></div>
+  <a class="btn-ghost btn-inline" href="/accounting/journal">بازگشت</a>
+</div>
+
+{% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
+
+<form class="card form-card" method="post" action="/accounting/journal/new" id="journalForm">
+  <div class="grid-2">
+    <div>
+      <label class="field-label" for="entry_date">تاریخ <span class="req">*</span></label>
+      <input class="field" id="entry_date" name="entry_date" type="date" required
+             value="{{ form.get('entry_date') if form else today }}">
+    </div>
+    <div>
+      <label class="field-label" for="reference">مرجع</label>
+      <input class="field" id="reference" name="reference"
+             value="{{ form.get('reference') if form else '' }}">
+    </div>
+  </div>
+
+  <label class="field-label" for="description">شرح <span class="req">*</span></label>
+  <input class="field" id="description" name="description" required
+         value="{{ form.get('description') if form else '' }}"
+         placeholder="مثلاً دریافت وجه از بیمار">
+
+  <h2 class="section-title spaced">سطرهای سند</h2>
+  <div class="table-wrap flush">
+    <table class="table lines-table">
+      <thead>
+        <tr><th>حساب</th><th class="w-price">بدهکار</th><th class="w-price">بستانکار</th>
+            <th>شرح سطر</th><th></th></tr>
+      </thead>
+      <tbody id="journalRows">
+        {% set accs = form.getlist('line_account_id') if form else [] %}
+        {% set debs = form.getlist('line_debit') if form else [] %}
+        {% set crs  = form.getlist('line_credit') if form else [] %}
+        {% for i in range(accs | length if accs else 2) %}
+        <tr class="jline">
+          <td>
+            <select class="field acct" name="line_account_id">
+              <option value="">— انتخاب حساب —</option>
+              {% for a in accounts %}
+              <option value="{{ a.id }}"
+                {% if accs and i < accs|length and accs[i]|string == a.id|string %}selected{% endif %}>
+                {{ a.code }} — {{ a.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </td>
+          <td><input class="field debit" name="line_debit" type="number" step="0.01" min="0"
+                     value="{{ debs[i] if debs and i < debs|length else '' }}"></td>
+          <td><input class="field credit" name="line_credit" type="number" step="0.01" min="0"
+                     value="{{ crs[i] if crs and i < crs|length else '' }}"></td>
+          <td><input class="field" name="line_memo" placeholder="اختیاری"></td>
+          <td><button class="btn-mini danger remove-jline" type="button" title="حذف سطر">×</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <button class="btn-mini" type="button" id="addJline">+ افزودن سطر</button>
+
+  {# Double-entry means the two columns must match exactly. Showing that live
+     saves the accountant from being rejected after typing the whole entry. #}
+  <div class="totals-box">
+    <div><span>جمع بدهکار</span><strong class="mono" id="sumDebit">0</strong></div>
+    <div><span>جمع بستانکار</span><strong class="mono" id="sumCredit">0</strong></div>
+    <div class="grand"><span>اختلاف</span><strong class="mono" id="sumDiff">0</strong></div>
+  </div>
+  <p class="hint" id="balanceHint"></p>
+
+  <div class="form-actions">
+    <button class="btn-primary" type="submit">ثبت سند</button>
+  </div>
+</form>
+{% endblock %}

@@ -7,7 +7,11 @@ from datetime import date
 from sqlalchemy import func, select
 
 from mediflow.core.constants import AccountType
-from mediflow.core.exceptions import BusinessRuleError, ValidationError
+from mediflow.core.exceptions import (
+    BusinessRuleError,
+    DuplicateError,
+    ValidationError,
+)
 from mediflow.core.logging_config import get_logger
 from mediflow.data.database import Database
 from mediflow.services.authz import require
@@ -99,6 +103,15 @@ class AccountingService:
         if not name:
             raise ValidationError("Account name is required.", field="name")
         with self._db.unit_of_work() as session:
+            # Check first rather than letting the UNIQUE constraint fire: a raw
+            # IntegrityError is not a MediFlowError, so callers cannot map it to
+            # a message and it surfaces as an unhandled error instead.
+            existing = session.execute(
+                select(Account).where(Account.code == code,
+                                      Account.is_deleted.is_(False))
+            ).scalars().first()
+            if existing is not None:
+                raise DuplicateError("An account with that code already exists.")
             account = Account(code=code, name=name, account_type=account_type.value)
             session.add(account)
             session.flush()

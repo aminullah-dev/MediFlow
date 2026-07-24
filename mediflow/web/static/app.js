@@ -135,3 +135,63 @@
   form.addEventListener("input", recalc);
   recalc();
 })();
+
+// Journal entry builder. Double-entry bookkeeping requires the debit and
+// credit columns to match exactly; the service rejects anything else. Showing
+// the running difference means the accountant sees the imbalance while typing
+// instead of after submitting a finished entry.
+(function () {
+  "use strict";
+  var form = document.getElementById("journalForm");
+  if (!form) return;
+
+  var rows = document.getElementById("journalRows");
+  var hint = document.getElementById("balanceHint");
+  var num = function (v) { var n = parseFloat(v); return isFinite(n) ? n : 0; };
+  var fmt = function (n) { return Math.round(n).toString(); };
+
+  function recalc() {
+    var debit = 0, credit = 0;
+    Array.prototype.forEach.call(rows.querySelectorAll(".jline"), function (row) {
+      debit += num(row.querySelector(".debit").value);
+      credit += num(row.querySelector(".credit").value);
+    });
+    var diff = debit - credit;
+    document.getElementById("sumDebit").textContent = fmt(debit);
+    document.getElementById("sumCredit").textContent = fmt(credit);
+    document.getElementById("sumDiff").textContent = fmt(diff);
+
+    if (debit === 0 && credit === 0) {
+      hint.textContent = ""; hint.className = "hint";
+    } else if (Math.abs(diff) < 0.005) {
+      hint.textContent = "سند متوازن است.";
+      hint.className = "hint balanced";
+    } else {
+      hint.textContent = "سند متوازن نیست — اختلاف " + fmt(Math.abs(diff));
+      hint.className = "hint warn";
+    }
+  }
+
+  document.getElementById("addJline").addEventListener("click", function () {
+    var copy = rows.querySelector(".jline").cloneNode(true);
+    Array.prototype.forEach.call(copy.querySelectorAll("input"), function (i) { i.value = ""; });
+    copy.querySelector(".acct").selectedIndex = 0;
+    rows.appendChild(copy);
+  });
+
+  rows.addEventListener("click", function (e) {
+    if (!e.target.closest(".remove-jline")) return;
+    // Keep two rows: an entry needs at least two lines to balance at all.
+    if (rows.querySelectorAll(".jline").length > 2) {
+      e.target.closest(".jline").remove();
+    } else {
+      var row = e.target.closest(".jline");
+      Array.prototype.forEach.call(row.querySelectorAll("input"), function (i) { i.value = ""; });
+      row.querySelector(".acct").selectedIndex = 0;
+    }
+    recalc();
+  });
+
+  form.addEventListener("input", recalc);
+  recalc();
+})();

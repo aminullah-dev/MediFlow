@@ -28,6 +28,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from mediflow.app import build_container
 from mediflow.core.config import Config
 from mediflow.core.constants import (
+    AccountType,
     AppointmentStatus,
     BloodGroup,
     Gender,
@@ -46,6 +47,8 @@ from mediflow.core.keyboard import has_persian_layout_chars
 from mediflow.core.logging_config import configure_logging, get_logger
 from mediflow.data.database import current_permissions, current_user_id
 from mediflow.services.dashboard_service import DashboardService
+from mediflow.services.accounting_service import EntryInput
+from mediflow.services.accounting_service import LineInput as JournalLineInput
 from mediflow.services.appointment_service import AppointmentBooking
 from mediflow.services.billing_service import InvoiceInput, LineInput
 from mediflow.services.lab_service import LabTestInput
@@ -263,6 +266,54 @@ _ERROR_FA.update({
     "Medication not found.": "دارو یافت نشد.",
     "Medication name is required.": "نام دارو الزامی است.",
 })
+
+
+ACCOUNT_TYPE_FA = {
+    AccountType.ASSET.value: "دارایی",
+    AccountType.LIABILITY.value: "بدهی",
+    AccountType.EQUITY.value: "سرمایه",
+    AccountType.INCOME.value: "درآمد",
+    AccountType.EXPENSE.value: "مصرف",
+}
+ACCOUNT_TYPES = [(t.value, ACCOUNT_TYPE_FA[t.value]) for t in AccountType]
+
+_ERROR_FA.update({
+    "An entry needs at least two lines.": "هر سند باید حداقل دو سطر داشته باشد.",
+    "Entry total must be greater than zero.": "مبلغ سند باید بیشتر از صفر باشد.",
+    "A description is required.": "شرح سند الزامی است.",
+    "Account code is required.": "کد حساب الزامی است.",
+    "Account name is required.": "نام حساب الزامی است.",
+    "An account with that code already exists.": "حسابی با این کد از قبل وجود دارد.",
+    "Cannot delete an account that has journal lines.":
+        "حسابی که در اسناد استفاده شده قابل حذف نیست.",
+})
+
+_ERROR_PATTERNS_FA.append(
+    (re.compile(r"^Debits \(([\d.]+)\) must equal credits \(([\d.]+)\)\.$"),
+     "بدهکار ({0}) باید با بستانکار ({1}) برابر باشد."))
+
+
+def _journal_lines_from(form) -> list[JournalLineInput]:
+    """Rebuild journal lines from the parallel form arrays.
+
+    Rows with neither a debit nor a credit are dropped by the service, so the
+    spare blank rows the form ships with are harmless.
+    """
+    accounts = form.getlist("line_account_id")
+    debits = form.getlist("line_debit")
+    credits = form.getlist("line_credit")
+    memos = form.getlist("line_memo")
+    lines: list[JournalLineInput] = []
+    for index, account_id in enumerate(accounts):
+        if not str(account_id).strip():
+            continue
+        lines.append(JournalLineInput(
+            account_id=int(account_id),
+            debit=float(debits[index] or 0) if index < len(debits) else 0.0,
+            credit=float(credits[index] or 0) if index < len(credits) else 0.0,
+            memo=(memos[index] or "").strip() or None if index < len(memos) else None,
+        ))
+    return lines
 
 
 LAB_STATUS_FA = {
@@ -843,6 +894,122 @@ def create_app(config: Config | None = None) -> FastAPI:
         except MediFlowError:
             log.exception("Complete failed for appointment %s", appointment_id)
         return RedirectResponse("/reception", status_code=303)
+
+    # -- accounting ---------------------------------------------------------
+    def _accounts_page(request: Request, user, **extra):
+        accounts = container.accounting.list_accounts()
+        by_type: dict[str, list] = {}
+        for account in accounts:
+            by_type.setdefault(account.account_type, []).append(account)
+        ctx = {
+            "user": user, "groups": by_type, "type_fa": ACCOUNT_TYPE_FA,
+            "types": ACCOUNT_TYPES, "summary": container.accounting.summary(),
+            "error": None,
+        }
+        ctx.update(extra)
+        return TEMPLATES.TemplateResponse(request, "accounting.html", ctx)
+
+    @app.get("/accounting", response_class=HTMLResponse)
+    def accounting_home(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("accounting.view"):
+            return _deny(request, user)
+        return _accounts_page(request, user)
+
+    @app.post("/accounting/accounts", response_class=HTMLResponse)
+    async def account_create(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("accounting.post"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            container.accounting.create_account(
+                (form.get("code") or "").strip(),
+                (form.get("name") or "").strip(),
+                AccountType(form.get("account_type") or AccountType.ASSET.value),
+            )
+        except (MediFlowError, ValueError) as exc:
+            return _accounts_page(request, user, error=_fa_error(exc))
+        return RedirectResponse("/accounting", status_code=303)
+
+    @app.post("/accounting/accounts/{account_id}/delete", response_class=HTMLResponse)
+    def account_delete(request: Request, account_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("accounting.post"):
+            return _deny(request, user)
+        try:
+            container.accounting.delete_account(account_id)
+        except MediFlowError as exc:
+            return _accounts_page(request, user, error=_fa_error(exc))
+        return RedirectResponse("/accounting", status_code=303)
+
+    @app.get("/accounting/journal", response_class=HTMLResponse)
+    def journal_list(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("accounting.view"):
+            return _deny(request, user)
+        return TEMPLATES.TemplateResponse(request, "journal.html", {
+            "user": user, "entries": container.accounting.list_entries(),
+        })
+
+    @app.get("/accounting/journal/new", response_class=HTMLResponse)
+    def journal_new_form(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("accounting.post"):
+            return _deny(request, user)
+        return TEMPLATES.TemplateResponse(request, "journal_form.html", {
+            "user": user, "error": None, "form": None,
+            "accounts": container.accounting.list_accounts(),
+            "today": date.today().isoformat(),
+        })
+
+    @app.post("/accounting/journal/new", response_class=HTMLResponse)
+    async def journal_create(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("accounting.post"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            entry_id = container.accounting.create_entry(EntryInput(
+                entry_date=_parse_date(_clean(form, "entry_date")) or date.today(),
+                description=(form.get("description") or "").strip(),
+                reference=_clean(form, "reference"),
+                lines=_journal_lines_from(form),
+            ))
+        except (MediFlowError, ValueError) as exc:
+            return TEMPLATES.TemplateResponse(request, "journal_form.html", {
+                "user": user, "error": _fa_error(exc), "form": form,
+                "accounts": container.accounting.list_accounts(),
+                "today": date.today().isoformat(),
+            }, status_code=400)
+        return RedirectResponse(f"/accounting/journal/{entry_id}", status_code=303)
+
+    @app.get("/accounting/journal/{entry_id}", response_class=HTMLResponse)
+    def journal_detail(request: Request, entry_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("accounting.view"):
+            return _deny(request, user)
+        try:
+            detail = container.accounting.get_entry_detail(entry_id)
+        except MediFlowError:
+            return _deny(request, user, "سند مورد نظر یافت نشد.")
+        return TEMPLATES.TemplateResponse(request, "journal_detail.html", {
+            "user": user, "d": detail,
+        })
 
     # -- backup -------------------------------------------------------------
     def _resolve_backup(name: str) -> Path:
