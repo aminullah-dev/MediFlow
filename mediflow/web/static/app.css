@@ -367,3 +367,37 @@ a.stat:hover { border-color: var(--primary); }
 }
 .perm-group .checkline { margin-top: 4px; color: var(--text); font-size: 14px; }
 .narrow-card { max-width: 460px; }
+
+/* ---- pharmacy ---------------------------------------------------------- */
+.alert-row {
+  display: grid; gap: 12px; margin-bottom: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.alert-box {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 15px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--border);
+}
+.alert-box.danger { border-inline-start: 3px solid var(--danger); }
+.alert-box.warn   { border-inline-start: 3px solid var(--warn); }
+.alert-box .alert-count {
+  font-size: 24px; font-weight: 700; min-width: 34px; text-align: center;
+}
+.alert-box.danger .alert-count { color: var(--danger); }
+.alert-box.warn   .alert-count { color: var(--warn); }
+.alert-box div { display: flex; flex-direction: column; overflow: hidden; }
+.alert-box .meta {
+  color: var(--muted); font-size: 12px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.stock { font-family: Consolas, monospace; font-weight: 700; }
+.stock.low { color: var(--warn); }
+.stock.out { color: var(--danger); }
+.tag.danger-tag { background: var(--danger-soft); color: var(--danger); }
+
+.stock-actions {
+  display: grid; gap: 16px; margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+.inline-form.no-rule { border-top: 0; padding-top: 0; }

@@ -13,6 +13,7 @@ role takes effect immediately instead of at next sign-in.
 from __future__ import annotations
 
 import os
+import re
 import secrets
 from datetime import date, datetime
 from pathlib import Path
@@ -39,6 +40,7 @@ from mediflow.data.database import current_permissions, current_user_id
 from mediflow.services.dashboard_service import DashboardService
 from mediflow.services.appointment_service import AppointmentBooking
 from mediflow.services.patient_service import PatientRegistration
+from mediflow.services.pharmacy_service import MedicationInput
 from mediflow.services.user_service import UserInput
 
 log = get_logger("web")
@@ -66,8 +68,25 @@ _ERROR_FA = {
 }
 
 
+# Messages that embed numbers cannot be looked up literally, so they are
+# matched by shape and rebuilt in Dari with the same figures.
+_ERROR_PATTERNS_FA: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"^Only (\d+) units in stock; cannot dispense (\d+)\.$"),
+     "فقط {0} واحد موجود است؛ نمی‌توان {1} واحد تحویل داد."),
+    (re.compile(r"^Password must be at least (\d+) characters\.$"),
+     "رمز باید حداقل {0} کاراکتر باشد."),
+]
+
+
 def _fa_error(exc: Exception) -> str:
-    return _ERROR_FA.get(str(exc), str(exc))
+    text = str(exc)
+    if text in _ERROR_FA:
+        return _ERROR_FA[text]
+    for pattern, template in _ERROR_PATTERNS_FA:
+        match = pattern.match(text)
+        if match:
+            return template.format(*match.groups())
+    return text
 
 
 # Appointment lifecycle, in Dari. Kept here rather than in the template so the
@@ -226,6 +245,44 @@ def _echo_user(form, user_id: int | None = None) -> SimpleNamespace:
         must_change_password=False,
         role_ids=[int(v) for v in form.getlist("role_ids") if str(v).strip().isdigit()],
         role_names=[],
+    )
+
+
+_ERROR_FA.update({
+    "Quantity must be greater than zero.": "مقدار باید بیشتر از صفر باشد.",
+    "Medication not found.": "دارو یافت نشد.",
+    "Medication name is required.": "نام دارو الزامی است.",
+})
+
+
+def _medication_from(form) -> MedicationInput:
+    return MedicationInput(
+        name=(form.get("name") or "").strip(),
+        generic_name=_clean(form, "generic_name"),
+        form=_clean(form, "form"),
+        strength=_clean(form, "strength"),
+        barcode=_clean(form, "barcode"),
+        unit=(form.get("unit") or "unit").strip() or "unit",
+        reorder_level=_parse_int(_clean(form, "reorder_level")) or 0,
+        sale_price=float(form.get("sale_price") or 0),
+        notes=_clean(form, "notes"),
+    )
+
+
+def _echo_med(form, medication_id: int | None = None) -> SimpleNamespace:
+    """Redraw the medication form after a failure, keeping what was typed.
+
+    Shaped like MedicationDTO, including the derived stock fields the template
+    reads, so it needs no special-casing.
+    """
+    return SimpleNamespace(
+        id=medication_id, name=form.get("name") or "",
+        generic_name=form.get("generic_name") or "", form=form.get("form") or "",
+        strength=form.get("strength") or "", barcode=form.get("barcode") or "",
+        unit=form.get("unit") or "unit", reorder_level=form.get("reorder_level") or 0,
+        sale_price=form.get("sale_price") or 0, notes=form.get("notes") or "",
+        stock_on_hand=0, earliest_expiry=None,
+        is_low=False, is_out=False, is_expiring=False,
     )
 
 
@@ -702,6 +759,138 @@ def create_app(config: Config | None = None) -> FastAPI:
         except MediFlowError:
             log.exception("Complete failed for appointment %s", appointment_id)
         return RedirectResponse("/reception", status_code=303)
+
+    # -- pharmacy -----------------------------------------------------------
+    def _pharmacy_page(request: Request, user, **extra):
+        term = extra.pop("term", "")
+        meds = container.pharmacy.list_medications(term)
+        ctx = {
+            "user": user, "medications": meds, "q": term, "error": None,
+            "out": [m for m in meds if m.is_out],
+            "low": [m for m in meds if m.is_low and not m.is_out],
+            "expiring": [m for m in meds if m.is_expiring],
+        }
+        ctx.update(extra)
+        return TEMPLATES.TemplateResponse(request, "pharmacy.html", ctx)
+
+    @app.get("/pharmacy", response_class=HTMLResponse)
+    def pharmacy_list(request: Request, q: str = ""):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("pharmacy.view"):
+            return _deny(request, user)
+        return _pharmacy_page(request, user, term=(q or "").strip())
+
+    @app.get("/pharmacy/new", response_class=HTMLResponse)
+    def medication_new_form(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("pharmacy.manage"):
+            return _deny(request, user)
+        return TEMPLATES.TemplateResponse(request, "medication_form.html", {
+            "user": user, "med": None, "error": None})
+
+    @app.post("/pharmacy/new", response_class=HTMLResponse)
+    async def medication_create(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("pharmacy.manage"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            new_id = container.pharmacy.create(_medication_from(form))
+        except MediFlowError as exc:
+            return TEMPLATES.TemplateResponse(request, "medication_form.html", {
+                "user": user, "med": _echo_med(form), "error": _fa_error(exc),
+            }, status_code=400)
+        return RedirectResponse(f"/pharmacy/{new_id}", status_code=303)
+
+    @app.get("/pharmacy/{medication_id}", response_class=HTMLResponse)
+    def medication_detail(request: Request, medication_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("pharmacy.view"):
+            return _deny(request, user)
+        try:
+            med = container.pharmacy.get(medication_id)
+        except MediFlowError:
+            return _deny(request, user, "دارو یافت نشد.")
+        return TEMPLATES.TemplateResponse(request, "medication_form.html", {
+            "user": user, "med": med, "error": None})
+
+    @app.post("/pharmacy/{medication_id}", response_class=HTMLResponse)
+    async def medication_update(request: Request, medication_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("pharmacy.manage"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            container.pharmacy.update(medication_id, _medication_from(form))
+        except MediFlowError as exc:
+            return TEMPLATES.TemplateResponse(request, "medication_form.html", {
+                "user": user, "med": _echo_med(form, medication_id), "error": _fa_error(exc),
+            }, status_code=400)
+        return RedirectResponse(f"/pharmacy/{medication_id}?saved=1", status_code=303)
+
+    @app.post("/pharmacy/{medication_id}/stock", response_class=HTMLResponse)
+    async def medication_add_stock(request: Request, medication_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("pharmacy.purchase"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            container.pharmacy.add_stock(
+                medication_id,
+                _parse_int(_clean(form, "quantity")) or 0,
+                batch_number=_clean(form, "batch_number"),
+                expiry_date=_parse_date(_clean(form, "expiry_date")),
+                cost_price=float(form.get("cost_price") or 0),
+            )
+        except (MediFlowError, ValueError) as exc:
+            med = container.pharmacy.get(medication_id)
+            return TEMPLATES.TemplateResponse(request, "medication_form.html", {
+                "user": user, "med": med, "error": _fa_error(exc),
+            }, status_code=400)
+        return RedirectResponse(f"/pharmacy/{medication_id}?stocked=1", status_code=303)
+
+    @app.post("/pharmacy/{medication_id}/dispense", response_class=HTMLResponse)
+    async def medication_dispense(request: Request, medication_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("pharmacy.sell"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            container.pharmacy.dispense(
+                medication_id, _parse_int(_clean(form, "quantity")) or 0)
+        except MediFlowError as exc:
+            med = container.pharmacy.get(medication_id)
+            return TEMPLATES.TemplateResponse(request, "medication_form.html", {
+                "user": user, "med": med, "error": _fa_error(exc),
+            }, status_code=400)
+        return RedirectResponse(f"/pharmacy/{medication_id}?dispensed=1", status_code=303)
+
+    @app.post("/pharmacy/{medication_id}/delete")
+    def medication_delete(request: Request, medication_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("pharmacy.manage"):
+            return _deny(request, user)
+        try:
+            container.pharmacy.delete(medication_id)
+        except MediFlowError as exc:
+            return _pharmacy_page(request, user, error=_fa_error(exc))
+        return RedirectResponse("/pharmacy", status_code=303)
 
     # -- own password -------------------------------------------------------
     @app.get("/account/password", response_class=HTMLResponse)

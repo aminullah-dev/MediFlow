@@ -1,0 +1,93 @@
+{% extends "_shell.html" %}
+{% set active = 'pharmacy' %}
+{% block title %}دواخانه — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">دواخانه</h1>
+    <p class="page-sub">{{ medications | length }} قلم دارو</p>
+  </div>
+  {% if user.can('pharmacy.manage') %}
+  <a class="btn-primary btn-inline" href="/pharmacy/new">+ داروی جدید</a>
+  {% endif %}
+</div>
+
+{% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
+
+{# Alerts before the catalogue: a stock-out or an expired batch is what
+   actually stops a clinic, and nobody scans a long table to find them. #}
+{% if out or low or expiring %}
+<section class="alert-row">
+  {% if out %}
+  <div class="alert-box danger">
+    <span class="alert-count">{{ out | length }}</span>
+    <div><strong>تمام شده</strong>
+      <span class="meta">{{ out | map(attribute='name') | join('، ') }}</span></div>
+  </div>
+  {% endif %}
+  {% if low %}
+  <div class="alert-box warn">
+    <span class="alert-count">{{ low | length }}</span>
+    <div><strong>رو به اتمام</strong>
+      <span class="meta">{{ low | map(attribute='name') | join('، ') }}</span></div>
+  </div>
+  {% endif %}
+  {% if expiring %}
+  <div class="alert-box warn">
+    <span class="alert-count">{{ expiring | length }}</span>
+    <div><strong>نزدیک انقضا</strong>
+      <span class="meta">{{ expiring | map(attribute='name') | join('، ') }}</span></div>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<form class="searchbar" method="get" action="/pharmacy">
+  <input class="field" type="search" name="q" value="{{ q }}"
+         placeholder="جستجو با نام، نام عمومی یا بارکد…" autocomplete="off">
+  <button class="btn-ghost" type="submit">جستجو</button>
+  {% if q %}<a class="btn-ghost" href="/pharmacy">پاک کردن</a>{% endif %}
+</form>
+
+{% if medications %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>نام</th><th>نام عمومی</th><th>شکل</th><th>قدرت</th>
+          <th>موجودی</th><th>حد سفارش</th><th>نزدیک‌ترین انقضا</th><th>قیمت فروش</th></tr>
+    </thead>
+    <tbody>
+      {% for m in medications %}
+      <tr>
+        <td><a href="/pharmacy/{{ m.id }}">{{ m.name }}</a></td>
+        <td>{{ m.generic_name or '—' }}</td>
+        <td>{{ m.form or '—' }}</td>
+        <td>{{ m.strength or '—' }}</td>
+        <td>
+          <span class="stock {% if m.is_out %}out{% elif m.is_low %}low{% endif %}">
+            {{ m.stock_on_hand }} {{ m.unit }}
+          </span>
+          {% if m.is_out %}<span class="tag danger-tag">تمام</span>
+          {% elif m.is_low %}<span class="tag">کم</span>{% endif %}
+        </td>
+        <td class="mono">{{ m.reorder_level }}</td>
+        <td class="mono">
+          {{ m.earliest_expiry or '—' }}
+          {% if m.is_expiring %}<span class="tag danger-tag">نزدیک انقضا</span>{% endif %}
+        </td>
+        <td class="mono">{{ '%.0f' % m.sale_price }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card empty">
+  <p>{% if q %}دارویی با «{{ q }}» پیدا نشد.{% else %}هنوز دارویی ثبت نشده است.{% endif %}</p>
+  {% if user.can('pharmacy.manage') %}
+  <a class="btn-primary btn-inline" href="/pharmacy/new">ثبت دارو</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -14,6 +14,9 @@
     {% if user.can('reception.checkin') or user.can('reception.queue') %}
     <a href="/reception" class="{{ 'active' if active == 'reception' }}">پذیرش</a>
     {% endif %}
+    {% if user.can('pharmacy.view') %}
+    <a href="/pharmacy" class="{{ 'active' if active == 'pharmacy' }}">دواخانه</a>
+    {% endif %}
     {% if user.can('user.view') %}
     <a href="/users" class="{{ 'active' if active == 'users' }}">کاربران</a>
     {% endif %}

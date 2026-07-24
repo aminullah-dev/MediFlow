@@ -1,0 +1,131 @@
+{% extends "_shell.html" %}
+{% set active = 'pharmacy' %}
+{% set editing = med is not none and med.id %}
+{% block title %}{{ med.name if editing else 'داروی جدید' }} — دواخانه{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ 'ویرایش دارو' if editing else 'ثبت داروی جدید' }}</h1>
+    {% if editing %}
+    <p class="page-sub">
+      موجودی: <strong class="stock {% if med.is_out %}out{% elif med.is_low %}low{% endif %}">{{ med.stock_on_hand }} {{ med.unit }}</strong>
+      {% if med.earliest_expiry %} · نزدیک‌ترین انقضا: <span class="mono">{{ med.earliest_expiry }}</span>{% endif %}
+    </p>
+    {% endif %}
+  </div>
+  <a class="btn-ghost btn-inline" href="/pharmacy">بازگشت به دواخانه</a>
+</div>
+
+{% if request.query_params.get('saved') %}<p class="banner ok">تغییرات ذخیره شد.</p>{% endif %}
+{% if request.query_params.get('stocked') %}<p class="banner ok">موجودی اضافه شد.</p>{% endif %}
+{% if request.query_params.get('dispensed') %}<p class="banner ok">دارو تحویل داده شد.</p>{% endif %}
+{% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
+
+{% if editing and (med.is_out or med.is_low or med.is_expiring) %}
+<p class="banner error">
+  {% if med.is_out %}این دارو تمام شده است.
+  {% elif med.is_low %}موجودی به حد سفارش رسیده است.{% endif %}
+  {% if med.is_expiring %} نزدیک‌ترین بچ به تاریخ انقضا نزدیک است ({{ med.earliest_expiry }}).{% endif %}
+</p>
+{% endif %}
+
+{% if editing and (user.can('pharmacy.purchase') or user.can('pharmacy.sell')) %}
+<div class="stock-actions">
+  {% if user.can('pharmacy.purchase') %}
+  <section class="card record-card">
+    <h2 class="section-title">افزودن موجودی (خرید)</h2>
+    <form class="inline-form no-rule" method="post" action="/pharmacy/{{ med.id }}/stock">
+      <input class="field narrow" name="quantity" type="number" min="1" required
+             placeholder="تعداد *">
+      <input class="field narrow" name="batch_number" placeholder="شماره بچ">
+      <input class="field narrow" name="expiry_date" type="date" title="تاریخ انقضا">
+      <input class="field narrow" name="cost_price" type="number" step="0.01" min="0"
+             placeholder="قیمت خرید">
+      <button class="btn-mini" type="submit">افزودن</button>
+    </form>
+    <p class="field-hint">هر افزودن یک بچ جداگانه با تاریخ انقضای خودش می‌سازد.</p>
+  </section>
+  {% endif %}
+
+  {% if user.can('pharmacy.sell') %}
+  <section class="card record-card">
+    <h2 class="section-title">تحویل دارو</h2>
+    <form class="inline-form no-rule" method="post" action="/pharmacy/{{ med.id }}/dispense">
+      <input class="field narrow" name="quantity" type="number" min="1" required
+             placeholder="تعداد *">
+      <button class="btn-mini ok" type="submit">تحویل</button>
+    </form>
+    <p class="field-hint">
+      از بچی که زودتر منقضی می‌شود برداشته می‌شود (FEFO)، تا دارو در انبار فاسد نشود.
+    </p>
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+
+<form class="card form-card" method="post"
+      action="{{ '/pharmacy/' ~ med.id if editing else '/pharmacy/new' }}">
+  <h2 class="section-title">مشخصات دارو</h2>
+  <div class="grid-2">
+    <div>
+      <label class="field-label" for="name">نام دارو <span class="req">*</span></label>
+      <input class="field" id="name" name="name" required value="{{ med.name if med else '' }}">
+    </div>
+    <div>
+      <label class="field-label" for="generic_name">نام عمومی</label>
+      <input class="field" id="generic_name" name="generic_name"
+             value="{{ med.generic_name if med and med.generic_name else '' }}">
+    </div>
+    <div>
+      <label class="field-label" for="form">شکل دارو</label>
+      <input class="field" id="form" name="form" placeholder="تابلیت، کپسول، شربت…"
+             value="{{ med.form if med and med.form else '' }}">
+    </div>
+    <div>
+      <label class="field-label" for="strength">قدرت</label>
+      <input class="field" id="strength" name="strength" placeholder="۵۰۰ mg"
+             value="{{ med.strength if med and med.strength else '' }}">
+    </div>
+    <div>
+      <label class="field-label" for="unit">واحد</label>
+      <input class="field" id="unit" name="unit" placeholder="tablet"
+             value="{{ med.unit if med else 'unit' }}">
+    </div>
+    <div>
+      <label class="field-label" for="reorder_level">حد سفارش مجدد</label>
+      <input class="field" id="reorder_level" name="reorder_level" type="number" min="0"
+             value="{{ med.reorder_level if med else 0 }}">
+      <p class="field-hint">وقتی موجودی به این عدد برسد هشدار داده می‌شود.</p>
+    </div>
+    <div>
+      <label class="field-label" for="sale_price">قیمت فروش</label>
+      <input class="field" id="sale_price" name="sale_price" type="number" step="0.01" min="0"
+             value="{{ '%.2f' % med.sale_price if med else '0.00' }}">
+    </div>
+    <div>
+      <label class="field-label" for="barcode">بارکد</label>
+      <input class="field" id="barcode" name="barcode"
+             value="{{ med.barcode if med and med.barcode else '' }}">
+    </div>
+  </div>
+
+  <label class="field-label" for="notes">یادداشت</label>
+  <textarea class="field" id="notes" name="notes" rows="2">{{ med.notes if med and med.notes else '' }}</textarea>
+
+  {% if user.can('pharmacy.manage') %}
+  <div class="form-actions">
+    <button class="btn-primary" type="submit">{{ 'ذخیره تغییرات' if editing else 'ثبت دارو' }}</button>
+  </div>
+  {% else %}
+  <p class="field-hint">برای ویرایش مشخصات دارو به دسترسی «مدیریت دواخانه» نیاز است.</p>
+  {% endif %}
+</form>
+
+{% if editing and user.can('pharmacy.manage') %}
+<form class="danger-zone" method="post" action="/pharmacy/{{ med.id }}/delete"
+      onsubmit="return confirm('این دارو حذف شود؟');">
+  <button class="btn-ghost danger" type="submit">حذف دارو</button>
+</form>
+{% endif %}
+{% endblock %}

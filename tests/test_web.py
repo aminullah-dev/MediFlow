@@ -317,3 +317,82 @@ def test_password_reset_issues_a_fresh_credential(client, app):
     r = client.post("/users/2/reset-password")
     assert r.status_code == 200
     assert "رمز بازنشانی شد" in r.text
+
+
+# -- pharmacy ---------------------------------------------------------------
+def _new_medication(client, **over) -> int:
+    data = {"name": "سیپروفلوکساسین", "generic_name": "Ciprofloxacin",
+            "form": "تابلیت", "strength": "500 mg", "unit": "tablet",
+            "reorder_level": "20", "sale_price": "15"}
+    data.update(over)
+    r = client.post("/pharmacy/new", data=data, follow_redirects=False)
+    assert r.status_code == 303, r.text[:400]
+    return int(r.headers["location"].rsplit("/", 1)[-1])
+
+
+def test_pharmacy_lists_seeded_medications(client):
+    page = client.get("/pharmacy").text
+    assert "دواخانه" in page
+    assert "Paracetamol" in page
+
+
+def test_medication_can_be_created_and_searched(client):
+    _new_medication(client)
+    assert "سیپروفلوکساسین" in client.get("/pharmacy").text
+    assert "سیپروفلوکساسین" in client.get("/pharmacy?q=Ciproflox").text
+
+
+def test_stock_is_tracked_as_dated_batches(client):
+    from datetime import date, timedelta
+
+    mid = _new_medication(client)
+    soon = (date.today() + timedelta(days=20)).isoformat()
+    later = (date.today() + timedelta(days=400)).isoformat()
+    client.post(f"/pharmacy/{mid}/stock",
+                data={"quantity": "30", "batch_number": "B-LATER", "expiry_date": later})
+    client.post(f"/pharmacy/{mid}/stock",
+                data={"quantity": "10", "batch_number": "B-SOON", "expiry_date": soon})
+
+    detail = client.get(f"/pharmacy/{mid}").text
+    assert "40 tablet" in detail
+    assert soon in detail, "the nearest expiry drives the warning"
+
+
+def test_dispensing_consumes_the_nearest_expiry_batch_first(client):
+    """FEFO. Draining the newest batch first would leave stock to expire in
+    the store — the whole point of tracking expiry per batch."""
+    from datetime import date, timedelta
+
+    mid = _new_medication(client)
+    soon = (date.today() + timedelta(days=20)).isoformat()
+    later = (date.today() + timedelta(days=400)).isoformat()
+    client.post(f"/pharmacy/{mid}/stock", data={"quantity": "30", "expiry_date": later})
+    client.post(f"/pharmacy/{mid}/stock", data={"quantity": "10", "expiry_date": soon})
+
+    client.post(f"/pharmacy/{mid}/dispense", data={"quantity": "10"})
+    detail = client.get(f"/pharmacy/{mid}").text
+    assert "30 tablet" in detail
+    assert soon not in detail, "near-expiry batch should be gone"
+    assert later in detail
+
+
+def test_cannot_dispense_more_than_is_in_stock(client):
+    mid = _new_medication(client)
+    client.post(f"/pharmacy/{mid}/stock", data={"quantity": "5"})
+    r = client.post(f"/pharmacy/{mid}/dispense", data={"quantity": "999"})
+    assert r.status_code == 400
+    assert "فقط 5 واحد موجود است" in r.text, "numeric message must be localised too"
+
+
+def test_zero_quantity_is_refused_in_dari(client):
+    mid = _new_medication(client)
+    r = client.post(f"/pharmacy/{mid}/dispense", data={"quantity": "0"})
+    assert r.status_code == 400
+    assert "بیشتر از صفر" in r.text
+
+
+def test_low_stock_raises_an_alert_on_the_list(client):
+    mid = _new_medication(client, reorder_level="20")
+    client.post(f"/pharmacy/{mid}/stock", data={"quantity": "25"})
+    client.post(f"/pharmacy/{mid}/dispense", data={"quantity": "10"})
+    assert "رو به اتمام" in client.get("/pharmacy").text
