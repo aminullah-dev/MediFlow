@@ -12,6 +12,7 @@ does not verify — closing the "drop in a crafted database" substitution vector
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -62,8 +63,9 @@ class BackupService:
         raw = self._db.engine.raw_connection()
         try:
             source: sqlite3.Connection = raw.driver_connection
-            with sqlite3.connect(str(dest)) as backup_conn:
+            with closing(sqlite3.connect(str(dest))) as backup_conn:
                 source.backup(backup_conn)
+                backup_conn.commit()  # `closing` does not commit the way `with conn:` did
             log.info("Created backup %s", dest)
         except sqlite3.Error as exc:  # pragma: no cover - surfaced to the user
             raise BackupError(f"Backup failed: {exc}") from exc
@@ -103,7 +105,7 @@ class BackupService:
             raise BackupError("The database is busy; finish open work and retry.")
         self._db.dispose()  # also removes the thread's scoped session
         try:
-            with sqlite3.connect(str(backup_path)) as source:
+            with closing(sqlite3.connect(str(backup_path))) as source:
                 raw = self._db.engine.raw_connection()
                 try:
                     target: sqlite3.Connection = raw.driver_connection
@@ -130,7 +132,7 @@ class BackupService:
     @staticmethod
     def _validate(path: Path) -> None:
         try:
-            with sqlite3.connect(str(path)) as conn:
+            with closing(sqlite3.connect(str(path))) as conn:
                 check = conn.execute("PRAGMA integrity_check").fetchone()
                 tables = {r[0] for r in conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table'")}

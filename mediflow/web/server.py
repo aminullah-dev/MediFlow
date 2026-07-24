@@ -20,7 +20,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -37,6 +37,7 @@ from mediflow.core.constants import (
 )
 from mediflow.core.exceptions import (
     AccountLockedError,
+    BackupError,
     AuthenticationError,
     MediFlowError,
     ValidationError,
@@ -842,6 +843,101 @@ def create_app(config: Config | None = None) -> FastAPI:
         except MediFlowError:
             log.exception("Complete failed for appointment %s", appointment_id)
         return RedirectResponse("/reception", status_code=303)
+
+    # -- backup -------------------------------------------------------------
+    def _resolve_backup(name: str) -> Path:
+        """Map a posted backup name onto a real file inside the backups folder.
+
+        The name arrives from the browser, so it is never trusted as a path: a
+        value like ``../../mediflow.db`` would otherwise let a restore or delete
+        reach outside the backups directory. Only a bare filename is accepted,
+        and the resolved path must still sit in that directory.
+        """
+        candidate = (name or "").strip()
+        if not candidate or "/" in candidate or "\\" in candidate or candidate.startswith("."):
+            raise BackupError("نام نسخه پشتیبان نامعتبر است.")
+        root = container.backup.backups_dir.resolve()
+        path = (root / candidate).resolve()
+        if path.parent != root or not path.is_file():
+            raise BackupError("نسخه پشتیبان یافت نشد.")
+        return path
+
+    def _backup_page(request: Request, user, **extra):
+        ctx = {"user": user, "backups": container.backup.list_backups(),
+               "backups_dir": str(container.backup.backups_dir),
+               "error": None, "message": None}
+        ctx.update(extra)
+        return TEMPLATES.TemplateResponse(request, "backup.html", ctx)
+
+    @app.get("/backup", response_class=HTMLResponse)
+    def backup_list(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("backup.run"):
+            return _deny(request, user)
+        return _backup_page(request, user)
+
+    @app.post("/backup/create", response_class=HTMLResponse)
+    def backup_create(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("backup.run"):
+            return _deny(request, user)
+        try:
+            path = container.backup.create_backup()
+        except MediFlowError as exc:
+            return _backup_page(request, user, error=_fa_error(exc))
+        return _backup_page(request, user,
+                            message=f"نسخه پشتیبان ساخته شد: {path.name}")
+
+    @app.get("/backup/download")
+    def backup_download(request: Request, name: str = ""):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("backup.run"):
+            return _deny(request, user)
+        try:
+            path = _resolve_backup(name)
+        except MediFlowError as exc:
+            return _backup_page(request, user, error=_fa_error(exc))
+        # An on-machine backup does not survive the machine; letting the
+        # operator copy one to a USB stick is the point of this button.
+        return FileResponse(path, filename=path.name,
+                            media_type="application/octet-stream")
+
+    @app.post("/backup/restore", response_class=HTMLResponse)
+    def backup_restore(request: Request, name: str = Form("")):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("backup.run"):
+            return _deny(request, user)
+        try:
+            path = _resolve_backup(name)
+            safety = container.backup.restore_backup(path)
+        except MediFlowError as exc:
+            return _backup_page(request, user, error=_fa_error(exc))
+        log.warning("Database restored from %s by '%s'", path.name, user.username)
+        return _backup_page(request, user, message=(
+            f"بازگردانی از «{path.name}» انجام شد. "
+            f"نسخه ایمنی وضعیت قبلی: {safety.name}"), restored=True)
+
+    @app.post("/backup/delete", response_class=HTMLResponse)
+    def backup_delete(request: Request, name: str = Form("")):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("backup.run"):
+            return _deny(request, user)
+        try:
+            path = _resolve_backup(name)
+            container.backup.delete_backup(path)
+        except MediFlowError as exc:
+            return _backup_page(request, user, error=_fa_error(exc))
+        return _backup_page(request, user, message=f"حذف شد: {path.name}")
 
     # -- laboratory ---------------------------------------------------------
     @app.get("/laboratory", response_class=HTMLResponse)

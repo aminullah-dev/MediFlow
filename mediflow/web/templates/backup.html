@@ -1,0 +1,84 @@
+{% extends "_shell.html" %}
+{% set active = 'backup' %}
+{% block title %}پشتیبان‌گیری — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">پشتیبان‌گیری</h1>
+    <p class="page-sub">{{ backups | length }} نسخه پشتیبان</p>
+  </div>
+  <form method="post" action="/backup/create">
+    <button class="btn-primary" type="submit">+ ساخت نسخه پشتیبان</button>
+  </form>
+</div>
+
+{% if message %}<p class="banner ok">{{ message }}</p>{% endif %}
+{% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
+
+{% if restored %}
+<p class="banner error">
+  دیتابیس بازگردانی شد. اگر رمز یا کاربران در آن نسخه فرق داشتند،
+  باید دوباره وارد شوید. اگر اشتباه شد، از نسخه ایمنی بالا بازگردانی کنید.
+</p>
+{% endif %}
+
+<section class="card record-card">
+  <h2 class="section-title">نسخه‌های موجود</h2>
+  {% if backups %}
+  <div class="table-wrap flush">
+    <table class="table">
+      <thead><tr><th>نام</th><th>تاریخ</th><th>حجم</th><th>اقدام</th></tr></thead>
+      <tbody>
+        {% for b in backups %}
+        <tr>
+          <td class="mono">{{ b.name }}</td>
+          <td class="mono">{{ b.modified.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td class="mono">{{ '%.1f' % (b.size_bytes / 1024 / 1024) }} MB</td>
+          <td class="actions">
+            <a class="btn-mini" href="/backup/download?name={{ b.name }}">دانلود</a>
+            <form method="post" action="/backup/restore"
+                  onsubmit="return confirm('هشدار جدی\n\nتمام داده‌های فعلی با محتوای «{{ b.name }}» جایگزین می‌شود.\nقبل از بازگردانی، یک نسخه ایمنی از وضعیت فعلی خودکار ساخته می‌شود.\n\nادامه می‌دهید؟');">
+              <input type="hidden" name="name" value="{{ b.name }}">
+              <button class="btn-mini danger" type="submit">بازگردانی</button>
+            </form>
+            <form method="post" action="/backup/delete"
+                  onsubmit="return confirm('نسخه «{{ b.name }}» حذف شود؟');">
+              <input type="hidden" name="name" value="{{ b.name }}">
+              <button class="btn-mini danger" type="submit">حذف</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="queue-empty">هنوز نسخه پشتیبانی ساخته نشده است.</p>
+  {% endif %}
+  <p class="field-hint">پوشه: <span class="mono">{{ backups_dir }}</span></p>
+</section>
+
+<section class="card record-card">
+  <h2 class="section-title">نکات مهم</h2>
+  <ul class="notes-list">
+    <li>
+      <strong>نسخه پشتیبان روی همین کامپیوتر است.</strong>
+      اگر این کامپیوتر خراب یا دزدیده شود، نسخه‌ها هم از بین می‌روند.
+      با دکمه‌ی «دانلود» یک کپی روی USB یا جای دیگر نگه دارید.
+    </li>
+    <li>
+      <strong>بازگردانی همه‌چیز را جایگزین می‌کند</strong> — بیماران، نوبت‌ها،
+      صورتحساب‌ها و کاربران. سیستم قبل از بازگردانی خودش یک نسخه ایمنی از
+      وضعیت فعلی می‌سازد، پس اگر اشتباه شد قابل برگشت است.
+    </li>
+    <li>
+      هر نسخه با امضای رمزنگاری‌شده ذخیره می‌شود و هنگام بازگردانی
+      بررسی می‌گردد؛ فایل دستکاری‌شده یا ناسالم پذیرفته نمی‌شود.
+    </li>
+    <li>
+      اگر پیام «دیتابیس مشغول است» دیدید، چند لحظه صبر کنید و دوباره تلاش کنید.
+    </li>
+  </ul>
+</section>
+{% endblock %}

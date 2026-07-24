@@ -559,3 +559,59 @@ def test_a_request_needs_both_a_patient_and_a_test(client, app):
     r = client.post("/laboratory/request", data={"patient_id": "", "lab_test_id": str(tid)})
     assert r.status_code == 400
     assert "بیمار را انتخاب کنید" in r.text
+
+
+# -- backup -----------------------------------------------------------------
+def _make_backup(client) -> str:
+    import re
+
+    r = client.post("/backup/create")
+    assert "ساخته شد" in r.text, r.text[:400]
+    return re.search(r'name="name" value="([^"]+)"', r.text).group(1)
+
+
+def test_restore_rolls_the_database_back(client):
+    """The point of the module: data written after a backup disappears."""
+    _new_patient(client, first_name="قبل", last_name="از")
+    name = _make_backup(client)
+    _new_patient(client, first_name="بعد", last_name="از")
+    assert "بعد از" in client.get("/patients").text
+
+    r = client.post("/backup/restore", data={"name": name})
+    assert "بازگردانی از" in r.text
+    assert "نسخه ایمنی" in r.text, "a safety copy must be taken before overwriting"
+
+    listing = client.get("/patients").text
+    assert "قبل از" in listing
+    assert "بعد از" not in listing
+
+
+@pytest.mark.parametrize("bad", [
+    "../mediflow.db", r"..\mediflow.db", "/etc/passwd", "", ".hidden", "sub/dir.db",
+])
+def test_backup_names_cannot_escape_the_backups_folder(client, tmp_path, bad):
+    """The name is posted by the browser, so a traversal must not reach the
+    live database or anything else outside the backups directory."""
+    client.post("/backup/delete", data={"name": bad})
+    assert (tmp_path / "mediflow.db").exists(), "live database must survive"
+
+    r = client.post("/backup/restore", data={"name": bad})
+    assert "نامعتبر" in r.text or "یافت نشد" in r.text
+
+
+def test_a_backup_can_be_downloaded(client):
+    """An on-machine backup dies with the machine; copying one off is the point."""
+    name = _make_backup(client)
+    r = client.get(f"/backup/download?name={name}")
+    assert r.status_code == 200
+    assert len(r.content) > 1000
+
+
+def test_a_backup_can_be_deleted_with_its_hmac(client, tmp_path):
+    """Regression: sqlite3's `with conn:` commits but never closes, so the
+    backup kept an open handle and Windows refused to delete the file."""
+    name = _make_backup(client)
+    r = client.post("/backup/delete", data={"name": name})
+    assert "حذف شد" in r.text
+    assert not (tmp_path / "backups" / name).exists()
+    assert not (tmp_path / "backups" / name.replace(".db", ".hmac")).exists()

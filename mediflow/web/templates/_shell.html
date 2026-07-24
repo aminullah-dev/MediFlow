@@ -26,6 +26,9 @@
     {% if user.can('user.view') %}
     <a href="/users" class="{{ 'active' if active == 'users' }}">کاربران</a>
     {% endif %}
+    {% if user.can('backup.run') %}
+    <a href="/backup" class="{{ 'active' if active == 'backup' }}">پشتیبان‌گیری</a>
+    {% endif %}
   </nav>
   <div class="topbar-spacer"></div>
   <div class="topbar-user">

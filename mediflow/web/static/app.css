@@ -458,3 +458,8 @@ a.stat:hover { border-color: var(--primary); }
 
 .btn-ghost.active-toggle { border-color: var(--primary); color: var(--primary); }
 a.btn-mini { text-decoration: none; display: inline-block; }
+
+/* ---- backup ------------------------------------------------------------ */
+.notes-list { margin: 0; padding-inline-start: 20px; color: var(--muted); }
+.notes-list li { margin-bottom: 9px; line-height: 1.7; }
+.notes-list strong { color: var(--text); }
