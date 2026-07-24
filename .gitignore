@@ -20,6 +20,7 @@ venv/
 /logs/
 *.log
 .secret_key
+.session_key
 
 # Qt compiled translations. The shipped .qm files ARE committed so a fresh
 # clone runs in Dari/Pashto without needing pyside6-lrelease; regenerate them

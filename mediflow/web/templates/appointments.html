@@ -1,0 +1,68 @@
+{% extends "_shell.html" %}
+{% set active = 'appointments' %}
+{% block title %}نوبت‌ها — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">نوبت‌ها</h1>
+    <p class="page-sub">{{ appointments | length }} نوبت در این روز</p>
+  </div>
+  {% if user.can('appointment.create') %}
+  <a class="btn-primary btn-inline" href="/appointments/new">+ نوبت جدید</a>
+  {% endif %}
+</div>
+
+<form class="searchbar" method="get" action="/appointments">
+  <input class="field" type="date" name="day" value="{{ day }}">
+  <button class="btn-ghost" type="submit">نمایش روز</button>
+  <a class="btn-ghost" href="/appointments">امروز</a>
+</form>
+
+{% if appointments %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>ساعت</th><th>توکن</th><th>بیمار</th><th>شماره پرونده</th>
+          <th>داکتر</th><th>بخش</th><th>وضعیت</th><th>اقدام</th></tr>
+    </thead>
+    <tbody>
+      {% for a in appointments %}
+      <tr>
+        <td class="mono">{{ '%02d:%02d' % (a.scheduled_start.hour, a.scheduled_start.minute) }}</td>
+        <td class="mono">{{ a.token_label or '—' }}</td>
+        <td><a href="/patients/{{ a.patient_id }}">{{ a.patient_name }}</a>
+            {% if a.is_walk_in %}<span class="tag">سرپایی</span>{% endif %}</td>
+        <td class="mono">{{ a.mrn }}</td>
+        <td>{{ a.doctor_name or '—' }}</td>
+        <td>{{ a.department_name or '—' }}</td>
+        <td><span class="status status-{{ a.status }}">{{ status_fa.get(a.status, a.status) }}</span></td>
+        <td class="actions">
+          {% if a.status == 'booked' and user.can('reception.checkin') %}
+          <form method="post" action="/appointments/{{ a.id }}/checkin">
+            <input type="hidden" name="day" value="{{ day }}">
+            <button class="btn-mini" type="submit">پذیرش</button>
+          </form>
+          {% endif %}
+          {% if a.is_active and user.can('appointment.cancel') %}
+          <form method="post" action="/appointments/{{ a.id }}/cancel"
+                onsubmit="return confirm('این نوبت لغو شود؟');">
+            <input type="hidden" name="day" value="{{ day }}">
+            <button class="btn-mini danger" type="submit">لغو</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card empty">
+  <p>برای این روز نوبتی ثبت نشده است.</p>
+  {% if user.can('appointment.create') %}
+  <a class="btn-primary btn-inline" href="/appointments/new">ثبت نوبت</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

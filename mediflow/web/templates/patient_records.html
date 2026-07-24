@@ -1,0 +1,130 @@
+{% extends "_shell.html" %}
+{% set active = 'patients' %}
+{% set can_write = user.can('emr.write') %}
+{% block title %}سوابق طبی — {{ patient.full_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">سوابق طبی — {{ patient.full_name }}</h1>
+    <p class="page-sub">
+      شماره پرونده <span class="mono">{{ patient.mrn }}</span>
+      {% if patient.age_years is not none %} · {{ patient.age_years }} ساله{% endif %}
+      {% if patient.blood_group and patient.blood_group != 'unknown' %} · گروه خونی {{ patient.blood_group }}{% endif %}
+    </p>
+  </div>
+  <div class="head-actions">
+    <a class="btn-ghost btn-inline" href="/patients/{{ patient.id }}">مشخصات بیمار</a>
+    {% if user.can('appointment.create') %}
+    <a class="btn-primary btn-inline" href="/appointments/new?patient_id={{ patient.id }}">نوبت جدید</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Allergies first: this is the section that changes what a clinician may
+     safely prescribe, so it must never be below the fold. -->
+<section class="card record-card danger-accent">
+  <h2 class="section-title">حساسیت‌ها <span class="count">{{ allergies | length }}</span></h2>
+
+  {% if allergies %}
+  <ul class="record-list">
+    {% for a in allergies %}
+    <li>
+      <div>
+        <strong>{{ a.substance }}</strong>
+        {% if a.severity %}<span class="sev sev-{{ a.severity }}">{{ severity_fa.get(a.severity, a.severity) }}</span>{% endif %}
+        {% if a.reaction %}<span class="meta">واکنش: {{ a.reaction }}</span>{% endif %}
+      </div>
+      {% if can_write %}
+      <form method="post" action="/allergies/{{ a.id }}/delete"
+            onsubmit="return confirm('این حساسیت حذف شود؟');">
+        <input type="hidden" name="patient_id" value="{{ patient.id }}">
+        <button class="btn-mini danger" type="submit">حذف</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="queue-empty">حساسیتی ثبت نشده است.</p>
+  {% endif %}
+
+  {% if can_write %}
+  <form class="inline-form" method="post" action="/patients/{{ patient.id }}/allergies">
+    <input class="field" name="substance" placeholder="ماده حساسیت‌زا *" required>
+    <select class="field" name="severity">
+      {% for value, label in severities %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+    </select>
+    <input class="field" name="reaction" placeholder="واکنش (اختیاری)">
+    <button class="btn-mini" type="submit">افزودن</button>
+  </form>
+  {% endif %}
+</section>
+
+<section class="card record-card">
+  <h2 class="section-title">فهرست مشکلات <span class="count">{{ conditions | length }}</span></h2>
+
+  {% if conditions %}
+  <ul class="record-list">
+    {% for c in conditions %}
+    <li>
+      <div>
+        <strong>{{ c.name }}</strong>
+        {% if c.is_chronic %}<span class="tag">مزمن</span>{% endif %}
+        {% if c.icd10_code %}<span class="meta mono">ICD-10: {{ c.icd10_code }}</span>{% endif %}
+        {% if c.diagnosed_on %}<span class="meta">تشخیص: {{ c.diagnosed_on }}</span>{% endif %}
+        {% if c.notes %}<span class="meta">{{ c.notes }}</span>{% endif %}
+      </div>
+      {% if can_write %}
+      <form method="post" action="/conditions/{{ c.id }}/delete"
+            onsubmit="return confirm('این مشکل حذف شود؟');">
+        <input type="hidden" name="patient_id" value="{{ patient.id }}">
+        <button class="btn-mini danger" type="submit">حذف</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="queue-empty">مشکلی ثبت نشده است.</p>
+  {% endif %}
+
+  {% if can_write %}
+  <form class="inline-form" method="post" action="/patients/{{ patient.id }}/conditions">
+    <input class="field" name="name" placeholder="نام مشکل / تشخیص *" required>
+    <input class="field narrow" name="icd10_code" placeholder="کد ICD-10">
+    <input class="field narrow" name="diagnosed_on" type="date" title="تاریخ تشخیص">
+    <label class="checkline tight">
+      <input type="checkbox" name="is_chronic" value="1" checked><span>مزمن</span>
+    </label>
+    <input class="field" name="notes" placeholder="یادداشت">
+    <button class="btn-mini" type="submit">افزودن</button>
+  </form>
+  {% endif %}
+</section>
+
+<section class="card record-card">
+  <h2 class="section-title">سابقه مراجعات <span class="count">{{ history | length }}</span></h2>
+  {% if history %}
+  <div class="table-wrap flush">
+    <table class="table">
+      <thead><tr><th>تاریخ</th><th>ساعت</th><th>داکتر</th><th>بخش</th><th>علت</th><th>وضعیت</th></tr></thead>
+      <tbody>
+        {% for a in history %}
+        <tr>
+          <td class="mono">{{ a.scheduled_start.date() }}</td>
+          <td class="mono">{{ '%02d:%02d' % (a.scheduled_start.hour, a.scheduled_start.minute) }}</td>
+          <td>{{ a.doctor_name or '—' }}</td>
+          <td>{{ a.department_name or '—' }}</td>
+          <td>{{ a.reason or '—' }}</td>
+          <td><span class="status status-{{ a.status }}">{{ status_fa.get(a.status, a.status) }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="queue-empty">هنوز مراجعه‌ای ثبت نشده است.</p>
+  {% endif %}
+</section>
+{% endblock %}

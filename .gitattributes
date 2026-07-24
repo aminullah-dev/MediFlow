@@ -3,3 +3,10 @@
 # conversion to them — a single rewritten byte silently breaks the .qm loader
 # and the UI would fall back to untranslated English source strings.
 *.qm binary
+
+# Windows batch files MUST check out with CRLF. cmd.exe parses them line by
+# line and with bare LF it splits mid-token — start.bat failed with
+# "'PROJECT:~0' is not recognized" until the endings were fixed. A clone on
+# macOS/Linux, or with core.autocrlf=false, would otherwise reintroduce it.
+*.bat text eol=crlf
+*.cmd text eol=crlf

@@ -1,0 +1,339 @@
+/* MediFlow web — carries over the desktop palette (clinical teal on deep navy)
+   so the two builds read as one product. RTL-first: logical properties only,
+   so a future LTR/English mode needs no extra rules. */
+:root {
+  --bg: #0b1418;
+  --surface: #121e23;
+  --surface-alt: #18272d;
+  --text: #e6f0f2;
+  --muted: #8ba0a6;
+  --primary: #22c3c9;
+  --primary-hover: #3dd6db;
+  --on-primary: #04231f;
+  --danger: #f26d6d;
+  --danger-soft: #3a1f1f;
+  --warn: #d97706;
+  --border: #243a41;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Vazirmatn, Tahoma, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ---- auth ------------------------------------------------------------- */
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  padding: 34px;
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-mark { width: 46px; height: 46px; color: var(--primary); align-self: center; }
+.brand-name { margin: 10px 0 2px; text-align: center; font-size: 24px; }
+.brand-sub { margin: 0 0 22px; text-align: center; color: var(--muted); font-size: 14px; }
+
+.field-label { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+
+.field {
+  width: 100%;
+  background: #0e1a1f;
+  border: 1px solid #33505a;
+  border-radius: 9px;
+  padding: 11px 13px;
+  color: var(--text);
+  font: inherit;
+}
+.field:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(34,195,201,.25); }
+
+.password-wrap { position: relative; display: flex; align-items: center; }
+.password-wrap .field { padding-inline-start: 42px; }
+
+/* inset-inline-start keeps the eye on the correct side when direction flips */
+.reveal {
+  position: absolute;
+  inset-inline-start: 8px;
+  display: grid;
+  place-items: center;
+  width: 28px; height: 28px;
+  background: none; border: 0; padding: 0;
+  color: var(--muted); cursor: pointer;
+}
+.reveal:hover { color: var(--primary); }
+.reveal svg { width: 18px; height: 18px; }
+
+.hint { margin: 10px 0 0; font-size: 13px; font-weight: 600; }
+.hint.warn { color: var(--warn); }
+
+.banner {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.banner.error { background: var(--danger-soft); border: 1px solid var(--danger); color: var(--danger); }
+
+.btn-primary {
+  margin-top: 20px;
+  padding: 13px 18px;
+  background: var(--primary);
+  color: var(--on-primary);
+  border: 0; border-radius: 10px;
+  font: inherit; font-weight: 700;
+  cursor: pointer;
+}
+.btn-primary:hover { background: var(--primary-hover); }
+
+.field-label + .field, .field + .field-label { margin-bottom: 0; }
+.auth-card .field-label:not(:first-of-type) { margin-top: 14px; }
+
+/* ---- app shell -------------------------------------------------------- */
+.topbar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-brand { font-weight: 700; font-size: 18px; color: var(--primary); }
+.topbar-spacer { flex: 1; }
+.topbar-user { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+
+.avatar {
+  display: grid; place-items: center;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--primary); color: var(--on-primary); font-weight: 700;
+}
+
+.btn-ghost {
+  background: transparent; color: var(--danger);
+  border: 1px solid #33505a; border-radius: 9px;
+  padding: 8px 14px; font: inherit; font-weight: 600; cursor: pointer;
+}
+.btn-ghost:hover { border-color: var(--danger); background: var(--danger-soft); }
+
+.page { padding: 28px 24px; max-width: 1100px; margin-inline: auto; }
+.page-title { margin: 0; font-size: 22px; }
+.page-sub { margin: 4px 0 22px; color: var(--muted); }
+
+.stat-grid {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  margin-bottom: 22px;
+}
+.stat {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.stat-value { font-size: 30px; font-weight: 700; }
+.stat-label { color: var(--muted); font-size: 13px; }
+
+.info-card { padding: 20px; }
+.section-title { margin: 0 0 12px; font-size: 16px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; margin: 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.mono { font-family: Consolas, "Courier New", monospace; font-size: 13px; word-break: break-all; }
+
+/* ---- module nav ------------------------------------------------------- */
+.topnav { display: flex; gap: 4px; }
+.topnav a {
+  color: var(--muted); text-decoration: none;
+  padding: 8px 14px; border-radius: 9px; font-weight: 600;
+}
+.topnav a:hover { background: var(--surface-alt); color: var(--text); }
+.topnav a.active { background: var(--primary); color: var(--on-primary); }
+
+/* ---- page header + actions -------------------------------------------- */
+.page-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 18px;
+}
+.btn-inline { display: inline-block; text-decoration: none; align-self: center; }
+a.btn-primary { color: var(--on-primary); }
+a.btn-ghost { color: var(--muted); text-decoration: none; }
+
+/* ---- search ----------------------------------------------------------- */
+.searchbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.searchbar .field { flex: 1; min-width: 220px; }
+
+/* ---- tables ----------------------------------------------------------- */
+/* Wrapper scrolls on its own so the page body never scrolls sideways. */
+.table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.table { width: 100%; border-collapse: collapse; min-width: 720px; }
+.table th, .table td { padding: 12px 14px; text-align: start; }
+.table thead th {
+  background: var(--surface-alt); color: var(--muted);
+  font-size: 13px; font-weight: 700; border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.table tbody tr + tr td { border-top: 1px solid var(--border); }
+.table tbody tr:hover { background: var(--surface-alt); }
+.table a { color: var(--primary); text-decoration: none; font-weight: 600; }
+.table a:hover { text-decoration: underline; }
+.row-link { font-size: 13px; }
+
+/* ---- forms ------------------------------------------------------------ */
+.form-card { padding: 22px; }
+.grid-2 { display: grid; gap: 14px 18px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.form-card .field-label { display: block; margin-top: 14px; }
+.grid-2 .field-label { margin-top: 0; }
+.form-actions { margin-top: 22px; }
+.form-actions .btn-primary { margin-top: 0; }
+textarea.field { resize: vertical; font: inherit; }
+.req { color: var(--danger); }
+.lock { color: var(--muted); font-weight: 400; font-size: 12px; }
+
+.banner.ok { background: #0e3a3d; border: 1px solid var(--primary); color: var(--primary); }
+
+.empty { padding: 40px; text-align: center; color: var(--muted); }
+.empty .btn-inline { margin-top: 14px; }
+
+.danger-zone { margin-top: 18px; }
+.btn-ghost.danger { color: var(--danger); border-color: var(--danger); }
+.btn-ghost.danger:hover { background: var(--danger-soft); }
+
+a.stat { text-decoration: none; color: inherit; }
+a.stat:hover { border-color: var(--primary); }
+.field-hint { margin: 5px 0 0; font-size: 12px; color: var(--muted); }
+
+/* ---- status pills ----------------------------------------------------- */
+.status {
+  display: inline-block; padding: 3px 10px; border-radius: 11px;
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+  background: var(--surface-alt); color: var(--muted);
+}
+.status-booked         { background: #0e3a3d; color: var(--primary); }
+.status-checked_in     { background: #3a2f0e; color: #e0a93a; }
+.status-in_consultation{ background: #0e2a3a; color: #4aa8e0; }
+.status-completed      { background: #10331c; color: #37c26a; }
+.status-cancelled,
+.status-no_show        { background: var(--danger-soft); color: var(--danger); }
+
+.tag {
+  display: inline-block; margin-inline-start: 6px; padding: 2px 8px;
+  border-radius: 9px; font-size: 11px; font-weight: 700;
+  background: var(--surface-alt); color: var(--muted);
+}
+
+/* ---- inline row actions ----------------------------------------------- */
+.actions { display: flex; gap: 6px; }
+.actions form { margin: 0; }
+.btn-mini {
+  background: var(--surface-alt); color: var(--text);
+  border: 1px solid #33505a; border-radius: 8px;
+  padding: 5px 11px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  white-space: nowrap;
+}
+.btn-mini:hover { border-color: var(--primary); color: var(--primary); }
+.btn-mini.danger:hover { border-color: var(--danger); color: var(--danger); }
+.btn-mini.ok:hover { border-color: #37c26a; color: #37c26a; }
+
+.checkline { display: flex; align-items: center; gap: 9px; margin-top: 16px; color: var(--muted); }
+.checkline input { width: 17px; height: 17px; accent-color: var(--primary); }
+
+/* ---- reception queue board -------------------------------------------- */
+.queue-grid {
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: start;
+}
+.queue-col {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+}
+.queue-head {
+  margin: 0 0 12px; font-size: 15px;
+  display: flex; align-items: center; gap: 8px;
+}
+.queue-head .count {
+  background: var(--surface-alt); color: var(--muted);
+  border-radius: 10px; padding: 1px 9px; font-size: 12px;
+}
+.queue-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface-alt);
+}
+.queue-card + .queue-card { margin-top: 9px; }
+.queue-card .token {
+  min-width: 46px; text-align: center;
+  font-family: Consolas, monospace; font-size: 17px; font-weight: 700;
+  color: var(--primary);
+}
+.queue-card.serving .token { color: #4aa8e0; }
+.queue-card.done .token { color: #37c26a; }
+.queue-card .who { flex: 1; display: flex; flex-direction: column; }
+.queue-card .who a { color: var(--text); text-decoration: none; font-weight: 600; }
+.queue-card .who a:hover { color: var(--primary); }
+.queue-card .meta { color: var(--muted); font-size: 12px; }
+.queue-empty { color: var(--muted); font-size: 14px; margin: 0; padding: 10px 2px; }
+
+/* ---- medical records --------------------------------------------------- */
+.head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.record-card { padding: 20px; margin-bottom: 16px; }
+/* Allergies get a red edge: it is the one section that changes what may be
+   safely prescribed, so it has to be findable at a glance. */
+.record-card.danger-accent { border-inline-start: 3px solid var(--danger); }
+
+.section-title .count {
+  background: var(--surface-alt); color: var(--muted);
+  border-radius: 10px; padding: 1px 9px; font-size: 12px; font-weight: 600;
+  margin-inline-start: 6px;
+}
+
+.record-list { list-style: none; margin: 0 0 14px; padding: 0; }
+.record-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface-alt);
+}
+.record-list li + li { margin-top: 8px; }
+.record-list .meta {
+  color: var(--muted); font-size: 12px; margin-inline-start: 10px;
+}
+
+.sev {
+  display: inline-block; margin-inline-start: 8px; padding: 2px 9px;
+  border-radius: 9px; font-size: 11px; font-weight: 700;
+}
+.sev-mild     { background: #10331c; color: #37c26a; }
+.sev-moderate { background: #3a2f0e; color: #e0a93a; }
+.sev-severe   { background: var(--danger-soft); color: var(--danger); }
+
+/* Add-rows wrap on narrow screens instead of overflowing the card. */
+.inline-form {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  padding-top: 12px; border-top: 1px dashed var(--border);
+}
+.inline-form .field { flex: 1; min-width: 150px; }
+.inline-form .field.narrow { flex: 0 0 140px; min-width: 120px; }
+.checkline.tight { margin-top: 0; white-space: nowrap; }
+.table-wrap.flush { border: 0; border-radius: 0; background: transparent; }

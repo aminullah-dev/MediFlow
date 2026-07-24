@@ -1,0 +1,56 @@
+{% extends "_shell.html" %}
+{% set active = 'patients' %}
+{% block title %}بیماران — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">بیماران</h1>
+    <p class="page-sub">{{ total }} بیمار ثبت شده</p>
+  </div>
+  {% if user.can('patient.create') %}
+  <a class="btn-primary btn-inline" href="/patients/new">+ ثبت بیمار جدید</a>
+  {% endif %}
+</div>
+
+<form class="searchbar" method="get" action="/patients">
+  <input class="field" type="search" name="q" value="{{ q }}"
+         placeholder="جستجو با نام، شماره پرونده یا تلفن…" autocomplete="off">
+  <button class="btn-ghost" type="submit">جستجو</button>
+  {% if q %}<a class="btn-ghost" href="/patients">پاک کردن</a>{% endif %}
+</form>
+
+{% if patients %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>شماره پرونده</th><th>نام</th><th>پدر</th><th>جنسیت</th>
+        <th>سن</th><th>گروه خونی</th><th>تلفن</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in patients %}
+      <tr>
+        <td class="mono">{{ p.mrn }}</td>
+        <td><a href="/patients/{{ p.id }}">{{ p.full_name }}</a></td>
+        <td>{{ p.father_name or '—' }}</td>
+        <td>{% if p.gender == 'male' %}مرد{% elif p.gender == 'female' %}زن{% else %}سایر{% endif %}</td>
+        <td>{{ p.age_years if p.age_years is not none else '—' }}</td>
+        <td>{{ '—' if p.blood_group == 'unknown' else p.blood_group }}</td>
+        <td class="mono">{{ p.phone or '—' }}</td>
+        <td><a class="row-link" href="/patients/{{ p.id }}">مشاهده</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card empty">
+  <p>{% if q %}بیماری با «{{ q }}» پیدا نشد.{% else %}هنوز بیماری ثبت نشده است.{% endif %}</p>
+  {% if user.can('patient.create') %}
+  <a class="btn-primary btn-inline" href="/patients/new">ثبت اولین بیمار</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

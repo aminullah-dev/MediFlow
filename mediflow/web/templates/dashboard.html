@@ -1,0 +1,29 @@
+{% extends "_shell.html" %}
+{% set active = 'dashboard' %}
+{% block title %}داشبورد — مدی‌فلو{% endblock %}
+
+{% block content %}
+<h1 class="page-title">داشبورد</h1>
+<p class="page-sub">خلاصه‌ی امروز</p>
+
+{% if stats %}
+<section class="stat-grid">
+  <a class="stat" href="/patients"><span class="stat-value">{{ stats.total_patients }}</span><span class="stat-label">مجموع بیماران</span></a>
+  <div class="stat"><span class="stat-value">{{ stats.patients_today }}</span><span class="stat-label">بیماران امروز</span></div>
+  <div class="stat"><span class="stat-value">{{ stats.appointments_today }}</span><span class="stat-label">نوبت‌های امروز</span></div>
+  <div class="stat"><span class="stat-value">{{ stats.waiting_now }}</span><span class="stat-label">در انتظار</span></div>
+  <div class="stat"><span class="stat-value">{{ stats.completed_today }}</span><span class="stat-label">تکمیل‌شده امروز</span></div>
+</section>
+{% else %}
+<p class="banner error">خلاصه‌ی داشبورد در دسترس نیست.</p>
+{% endif %}
+
+<section class="card info-card">
+  <h2 class="section-title">وضعیت سیستم</h2>
+  <dl class="kv">
+    <dt>کاربر</dt><dd>{{ user.username }}</dd>
+    <dt>تعداد دسترسی‌ها</dt><dd>{{ user.permissions | length }}</dd>
+    <dt>پوشه‌ی داده</dt><dd class="mono">{{ data_dir }}</dd>
+  </dl>
+</section>
+{% endblock %}

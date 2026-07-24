@@ -22,7 +22,18 @@ APP_DIR_NAME = "MediFlow"
 
 
 def _base_data_dir() -> Path:
-    """Return the OS-appropriate writable base directory for application data."""
+    """Return the OS-appropriate writable base directory for application data.
+
+    ``MEDIFLOW_DATA_DIR`` overrides everything. That escape hatch exists for a
+    concrete reason: when the interpreter is a Microsoft Store (MSIX) build,
+    Windows silently redirects writes to ``%APPDATA%`` into a per-package
+    ``LocalCache`` folder, so a script and the installed app can each believe
+    they are using "the" database while touching two different files. Setting
+    this variable pins both to one path.
+    """
+    override = os.environ.get("MEDIFLOW_DATA_DIR")
+    if override:
+        return Path(override)
     if sys.platform.startswith("win"):
         root = os.environ.get("APPDATA") or os.path.expanduser("~")
         return Path(root) / APP_DIR_NAME

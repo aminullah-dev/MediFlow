@@ -1,0 +1,74 @@
+{% extends "_shell.html" %}
+{% set active = 'reception' %}
+{% block title %}پذیرش — مدی‌فلو{% endblock %}
+
+{% block content %}
+{# The board is the receptionist's whole screen for the shift, so it refreshes
+   itself; without this a second workstation's check-in would go unnoticed. #}
+<meta http-equiv="refresh" content="30">
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">پذیرش</h1>
+    <p class="page-sub">صف امروز — هر ۳۰ ثانیه به‌روز می‌شود</p>
+  </div>
+  <a class="btn-ghost btn-inline" href="/reception">تازه‌سازی</a>
+</div>
+
+<div class="queue-grid">
+  <section class="queue-col">
+    <h2 class="queue-head">در انتظار <span class="count">{{ waiting | length }}</span></h2>
+    {% for a in waiting %}
+    <article class="queue-card">
+      <div class="token">{{ a.token_label or '—' }}</div>
+      <div class="who">
+        <a href="/patients/{{ a.patient_id }}">{{ a.patient_name }}</a>
+        <span class="meta">{{ a.doctor_name or 'بدون داکتر' }} · {{ '%02d:%02d' % (a.scheduled_start.hour, a.scheduled_start.minute) }}</span>
+      </div>
+      {% if user.can('reception.queue') or user.can('appointment.update') %}
+      <form method="post" action="/reception/{{ a.id }}/call">
+        <button class="btn-mini" type="submit">فراخوانی</button>
+      </form>
+      {% endif %}
+    </article>
+    {% else %}
+    <p class="queue-empty">کسی در انتظار نیست.</p>
+    {% endfor %}
+  </section>
+
+  <section class="queue-col">
+    <h2 class="queue-head">در حال معاینه <span class="count">{{ serving | length }}</span></h2>
+    {% for a in serving %}
+    <article class="queue-card serving">
+      <div class="token">{{ a.token_label or '—' }}</div>
+      <div class="who">
+        <a href="/patients/{{ a.patient_id }}">{{ a.patient_name }}</a>
+        <span class="meta">{{ a.doctor_name or 'بدون داکتر' }}</span>
+      </div>
+      {% if user.can('reception.queue') or user.can('appointment.update') %}
+      <form method="post" action="/reception/{{ a.id }}/complete">
+        <button class="btn-mini ok" type="submit">تکمیل</button>
+      </form>
+      {% endif %}
+    </article>
+    {% else %}
+    <p class="queue-empty">کسی در حال معاینه نیست.</p>
+    {% endfor %}
+  </section>
+
+  <section class="queue-col">
+    <h2 class="queue-head">تکمیل‌شده امروز <span class="count">{{ done | length }}</span></h2>
+    {% for a in done %}
+    <article class="queue-card done">
+      <div class="token">{{ a.token_label or '—' }}</div>
+      <div class="who">
+        <a href="/patients/{{ a.patient_id }}">{{ a.patient_name }}</a>
+        <span class="meta">{{ a.doctor_name or 'بدون داکتر' }}</span>
+      </div>
+    </article>
+    {% else %}
+    <p class="queue-empty">هنوز کسی تکمیل نشده.</p>
+    {% endfor %}
+  </section>
+</div>
+{% endblock %}

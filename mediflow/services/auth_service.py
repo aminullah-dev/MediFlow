@@ -160,6 +160,26 @@ class AuthService:
             user.must_change_password = False
             user.password_changed_at = utcnow()
 
+    def load_session_user(self, user_id: int) -> AuthenticatedUser | None:
+        """Rebuild the signed-in snapshot for an already-authenticated id.
+
+        The web layer calls this on every request instead of trusting whatever
+        the session cookie carries, so revoking a role or deactivating an
+        account takes effect on the very next page load rather than at the
+        user's next sign-in. Returns ``None`` for unknown or disabled accounts.
+        """
+        with self._db.unit_of_work() as session:
+            user = session.get(User, user_id)
+            if user is None or user.is_deleted or not user.is_active:
+                return None
+            return AuthenticatedUser(
+                id=user.id,
+                username=user.username,
+                full_name=user.full_name,
+                permissions=frozenset(user.all_permission_codes()),
+                must_change_password=user.must_change_password,
+            )
+
     def logout(self) -> None:
         current_user_id.set(None)
         current_permissions.set(frozenset())

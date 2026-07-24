@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{# Shared chrome for every signed-in page: top bar + module nav. #}
+{% block body %}
+<header class="topbar">
+  <div class="topbar-brand">مدی‌فلو</div>
+  <nav class="topnav">
+    <a href="/" class="{{ 'active' if active == 'dashboard' }}">داشبورد</a>
+    {% if user.can('patient.view') %}
+    <a href="/patients" class="{{ 'active' if active == 'patients' }}">بیماران</a>
+    {% endif %}
+    {% if user.can('appointment.view') %}
+    <a href="/appointments" class="{{ 'active' if active == 'appointments' }}">نوبت‌ها</a>
+    {% endif %}
+    {% if user.can('reception.checkin') or user.can('reception.queue') %}
+    <a href="/reception" class="{{ 'active' if active == 'reception' }}">پذیرش</a>
+    {% endif %}
+  </nav>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-user">
+    <span class="avatar">{{ user.full_name[:1] | upper }}</span>
+    <span>{{ user.full_name }}</span>
+  </div>
+  <form method="post" action="/logout">
+    <button class="btn-ghost" type="submit">خروج از حساب</button>
+  </form>
+</header>
+<main class="page">
+  {% block content %}{% endblock %}
+</main>
+{% endblock %}

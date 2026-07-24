@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}ورود به مدی‌فلو{% endblock %}
+
+{% block body %}
+<main class="auth-screen">
+  <form class="card auth-card" method="post" action="/login" autocomplete="on">
+    <svg class="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M4 3v6a4 4 0 0 0 8 0V3"/><path d="M4.5 3H3M12 3h-1.5"/>
+      <path d="M8 15a5 5 0 0 0 10 0v-2"/><circle cx="18" cy="11" r="2"/>
+    </svg>
+    <h1 class="brand-name">مدی‌فلو</h1>
+    <p class="brand-sub">به حساب خود وارد شوید</p>
+
+    <label class="field-label" for="username">نام کاربری</label>
+    <input class="field" id="username" name="username" type="text"
+           value="{{ username or '' }}" autocomplete="username" autofocus required>
+
+    <label class="field-label" for="password">رمز عبور</label>
+    <div class="password-wrap">
+      <input class="field" id="password" name="password" type="password"
+             autocomplete="current-password" required>
+      <button class="reveal" type="button" id="reveal" aria-label="نمایش رمز عبور">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
+
+    <p class="hint warn" id="capsHint" hidden>کلید Caps Lock روشن است</p>
+    <p class="hint warn" id="layoutHint" {% if not layout_warning %}hidden{% endif %}>
+      کیبورد شما روی فارسی است. برای تغییر به انگلیسی، Alt+Shift را فشار دهید.
+    </p>
+
+    {% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
+
+    <button class="btn-primary" type="submit">ورود</button>
+  </form>
+</main>
+{% endblock %}

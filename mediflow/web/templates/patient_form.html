@@ -1,0 +1,117 @@
+{% extends "_shell.html" %}
+{% set active = 'patients' %}
+{% set editing = patient is not none and patient.id %}
+{% block title %}{{ 'ویرایش بیمار' if editing else 'ثبت بیمار جدید' }} — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ 'ویرایش بیمار' if editing else 'ثبت بیمار جدید' }}</h1>
+    {% if editing and patient.mrn %}
+    <p class="page-sub">شماره پرونده: <span class="mono">{{ patient.mrn }}</span></p>
+    {% endif %}
+  </div>
+  <div class="head-actions">
+    {% if editing and user.can('emr.view') %}
+    <a class="btn-primary btn-inline" href="/patients/{{ patient.id }}/records">سوابق طبی</a>
+    {% endif %}
+    {% if editing and user.can('appointment.create') %}
+    <a class="btn-ghost btn-inline" href="/appointments/new?patient_id={{ patient.id }}">نوبت جدید</a>
+    {% endif %}
+    <a class="btn-ghost btn-inline" href="/patients">بازگشت به فهرست</a>
+  </div>
+</div>
+
+{% if request.query_params.get('saved') %}
+<p class="banner ok">تغییرات ذخیره شد.</p>
+{% endif %}
+{% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
+
+<form class="card form-card" method="post"
+      action="{{ '/patients/' ~ patient.id if editing else '/patients/new' }}">
+  <div class="grid-2">
+    <div>
+      <label class="field-label" for="first_name">نام <span class="req">*</span></label>
+      <input class="field" id="first_name" name="first_name" required
+             value="{{ patient.first_name if patient else '' }}">
+    </div>
+    <div>
+      <label class="field-label" for="last_name">تخلص <span class="req">*</span></label>
+      <input class="field" id="last_name" name="last_name" required
+             value="{{ patient.last_name if patient else '' }}">
+    </div>
+    <div>
+      <label class="field-label" for="father_name">نام پدر</label>
+      <input class="field" id="father_name" name="father_name"
+             value="{{ patient.father_name if patient and patient.father_name else '' }}">
+    </div>
+    <div>
+      <label class="field-label" for="gender">جنسیت</label>
+      <select class="field" id="gender" name="gender">
+        {% for value, label in genders %}
+        <option value="{{ value }}" {% if patient and patient.gender == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="field-label" for="date_of_birth">تاریخ تولد <span class="req">*</span></label>
+      <input class="field" id="date_of_birth" name="date_of_birth" type="date"
+             value="{{ patient.date_of_birth if patient and patient.date_of_birth else '' }}">
+      <p class="field-hint">یکی از این دو کافی است</p>
+    </div>
+    <div>
+      <label class="field-label" for="approximate_age_years">یا سن تقریبی (سال) <span class="req">*</span></label>
+      <input class="field" id="approximate_age_years" name="approximate_age_years"
+             type="number" min="0" max="130"
+             value="{{ patient.approximate_age_years if patient and patient.approximate_age_years is not none else '' }}">
+      <p class="field-hint">وقتی تاریخ دقیق تولد معلوم نیست</p>
+    </div>
+    <div>
+      <label class="field-label" for="blood_group">گروه خونی</label>
+      <select class="field" id="blood_group" name="blood_group">
+        {% for value, label in blood_groups %}
+        <option value="{{ value }}" {% if patient and patient.blood_group == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="field-label" for="phone">تلفن</label>
+      <input class="field" id="phone" name="phone" inputmode="tel"
+             value="{{ patient.phone if patient and patient.phone else '' }}">
+    </div>
+    <div>
+      <label class="field-label" for="national_id">شماره تذکره <span class="lock">🔒 رمزنگاری‌شده</span></label>
+      <input class="field" id="national_id" name="national_id"
+             value="{{ patient.national_id if patient and patient.national_id else '' }}">
+    </div>
+    <div>
+      <label class="field-label" for="province">ولایت</label>
+      <input class="field" id="province" name="province"
+             value="{{ patient.province if patient and patient.province else '' }}">
+    </div>
+    <div>
+      <label class="field-label" for="district">ولسوالی</label>
+      <input class="field" id="district" name="district"
+             value="{{ patient.district if patient and patient.district else '' }}">
+    </div>
+  </div>
+
+  <label class="field-label" for="address">آدرس</label>
+  <input class="field" id="address" name="address"
+         value="{{ patient.address if patient and patient.address else '' }}">
+
+  <label class="field-label" for="notes">یادداشت</label>
+  <textarea class="field" id="notes" name="notes" rows="3">{{ patient.notes if patient and patient.notes else '' }}</textarea>
+
+  <div class="form-actions">
+    <button class="btn-primary" type="submit">{{ 'ذخیره تغییرات' if editing else 'ثبت بیمار' }}</button>
+  </div>
+</form>
+
+{% if editing and user.can('patient.delete') %}
+<form class="danger-zone" method="post" action="/patients/{{ patient.id }}/delete"
+      onsubmit="return confirm('این بیمار حذف شود؟ سوابق قابل بازیابی است ولی از فهرست خارج می‌شود.');">
+  <button class="btn-ghost danger" type="submit">حذف بیمار</button>
+</form>
+{% endif %}
+{% endblock %}
