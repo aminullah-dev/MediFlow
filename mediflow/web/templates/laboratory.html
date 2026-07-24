@@ -1,0 +1,82 @@
+{% extends "_shell.html" %}
+{% set active = 'laboratory' %}
+{% block title %}لابراتوار — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">لابراتوار</h1>
+    <p class="page-sub">
+      {{ requests | length }} {% if show_all %}درخواست{% else %}درخواست باز{% endif %}
+    </p>
+  </div>
+  <div class="head-actions">
+    {% if user.can('lab.request') %}
+    <a class="btn-primary btn-inline" href="/laboratory/request">+ درخواست آزمایش</a>
+    {% endif %}
+    <a class="btn-ghost btn-inline" href="/laboratory/tests">فهرست آزمایش‌ها</a>
+  </div>
+</div>
+
+<div class="searchbar">
+  <a class="btn-ghost {{ 'active-toggle' if not show_all }}" href="/laboratory">فقط باز</a>
+  <a class="btn-ghost {{ 'active-toggle' if show_all }}" href="/laboratory?all=1">همه</a>
+</div>
+
+{% if requests %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>تاریخ</th><th>بیمار</th><th>شماره پرونده</th><th>آزمایش</th>
+          <th>وضعیت</th><th>نتیجه</th><th>اقدام</th></tr>
+    </thead>
+    <tbody>
+      {% for r in requests %}
+      <tr>
+        <td class="mono">{{ r.requested_at.date() }}</td>
+        <td><a href="/patients/{{ r.patient_id }}">{{ r.patient_name }}</a></td>
+        <td class="mono">{{ r.mrn }}</td>
+        <td>{{ r.test_name }}</td>
+        <td><span class="status status-lab-{{ r.status }}">{{ status_fa.get(r.status, r.status) }}</span></td>
+        <td>
+          {% if r.result_value %}
+            <span class="mono">{{ r.result_value }}{% if r.unit %} {{ r.unit }}{% endif %}</span>
+            {% if r.result_flag %}
+            <span class="tag flag-{{ r.result_flag }}">{{ flag_fa.get(r.result_flag, r.result_flag) }}</span>
+            {% endif %}
+            {% if r.reference_range %}<span class="meta">مرجع: {{ r.reference_range }}</span>{% endif %}
+          {% else %}—{% endif %}
+        </td>
+        <td class="actions">
+          {% if user.can('lab.result') %}
+            {% if r.status == 'requested' %}
+            <form method="post" action="/laboratory/{{ r.id }}/collect">
+              <button class="btn-mini" type="submit">نمونه‌گیری</button></form>
+            {% elif r.status == 'sample_collected' %}
+            <form method="post" action="/laboratory/{{ r.id }}/start">
+              <button class="btn-mini" type="submit">شروع</button></form>
+            {% endif %}
+            {% if r.is_open and r.status != 'requested' %}
+            <a class="btn-mini ok" href="/laboratory/{{ r.id }}/result">ثبت نتیجه</a>
+            {% endif %}
+            {% if r.is_open %}
+            <form method="post" action="/laboratory/{{ r.id }}/cancel"
+                  onsubmit="return confirm('این درخواست لغو شود؟');">
+              <button class="btn-mini danger" type="submit">لغو</button></form>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card empty">
+  <p>{% if show_all %}هنوز درخواستی ثبت نشده است.{% else %}درخواست بازی وجود ندارد.{% endif %}</p>
+  {% if user.can('lab.request') %}
+  <a class="btn-primary btn-inline" href="/laboratory/request">ثبت درخواست</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

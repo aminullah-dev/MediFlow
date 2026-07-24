@@ -1,0 +1,53 @@
+{% extends "_shell.html" %}
+{% set active = 'laboratory' %}
+{% block title %}ثبت نتیجه — {{ req.test_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">ثبت نتیجه — {{ req.test_name }}</h1>
+    <p class="page-sub">
+      <a href="/patients/{{ req.patient_id }}">{{ req.patient_name }}</a>
+      · <span class="mono">{{ req.mrn }}</span>
+      · <span class="status status-lab-{{ req.status }}">{{ status_fa.get(req.status, req.status) }}</span>
+    </p>
+  </div>
+  <a class="btn-ghost btn-inline" href="/laboratory">بازگشت</a>
+</div>
+
+{% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
+
+{# The reference range belongs next to the input, not buried in the catalogue:
+   it is what tells the technician whether the value is normal. #}
+{% if req.reference_range %}
+<p class="banner ok">
+  محدوده مرجع: <strong class="mono">{{ req.reference_range }}</strong>
+  {% if req.unit %} ({{ req.unit }}){% endif %}
+</p>
+{% endif %}
+
+<form class="card form-card narrow-card" method="post"
+      action="/laboratory/{{ req.id }}/result">
+  <label class="field-label" for="result_value">
+    مقدار نتیجه <span class="req">*</span>
+    {% if req.unit %}<span class="lock">({{ req.unit }})</span>{% endif %}
+  </label>
+  <input class="field" id="result_value" name="result_value" required
+         value="{{ req.result_value or '' }}" autofocus>
+
+  <label class="field-label" for="result_flag">نشانه</label>
+  <select class="field" id="result_flag" name="result_flag">
+    {% for value, label in flags %}
+    <option value="{{ value }}" {% if req.result_flag == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+
+  <label class="field-label" for="notes">یادداشت</label>
+  <textarea class="field" id="notes" name="notes" rows="3"></textarea>
+
+  <div class="form-actions">
+    <button class="btn-primary" type="submit">ثبت نتیجه</button>
+  </div>
+  <p class="field-hint">با ثبت نتیجه، وضعیت درخواست «تکمیل شده» می‌شود.</p>
+</form>
+{% endblock %}

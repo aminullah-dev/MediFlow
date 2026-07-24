@@ -32,6 +32,7 @@ from mediflow.core.constants import (
     BloodGroup,
     Gender,
     InvoiceStatus,
+    LabRequestStatus,
     PaymentMethod,
 )
 from mediflow.core.exceptions import (
@@ -46,6 +47,7 @@ from mediflow.data.database import current_permissions, current_user_id
 from mediflow.services.dashboard_service import DashboardService
 from mediflow.services.appointment_service import AppointmentBooking
 from mediflow.services.billing_service import InvoiceInput, LineInput
+from mediflow.services.lab_service import LabTestInput
 from mediflow.services.patient_service import PatientRegistration
 from mediflow.services.pharmacy_service import MedicationInput
 from mediflow.services.user_service import UserInput
@@ -259,6 +261,29 @@ _ERROR_FA.update({
     "Quantity must be greater than zero.": "مقدار باید بیشتر از صفر باشد.",
     "Medication not found.": "دارو یافت نشد.",
     "Medication name is required.": "نام دارو الزامی است.",
+})
+
+
+LAB_STATUS_FA = {
+    LabRequestStatus.REQUESTED.value: "درخواست‌شده",
+    LabRequestStatus.SAMPLE_COLLECTED.value: "نمونه گرفته شد",
+    LabRequestStatus.IN_PROGRESS.value: "در حال انجام",
+    LabRequestStatus.COMPLETED.value: "تکمیل شده",
+    LabRequestStatus.CANCELLED.value: "لغو شده",
+}
+
+# Result flags are a free-text column in the model; these canonical English
+# values keep web- and desktop-entered results comparable, with Dari shown.
+LAB_FLAG_FA = {"normal": "طبیعی", "high": "بالا", "low": "پایین",
+               "critical": "بحرانی"}
+LAB_FLAGS = [("", "— بدون نشانه —"), ("normal", "طبیعی"), ("high", "بالا"),
+             ("low", "پایین"), ("critical", "بحرانی")]
+
+_ERROR_FA.update({
+    "A result value is required.": "مقدار نتیجه الزامی است.",
+    "Request not found.": "درخواست یافت نشد.",
+    "Test not found.": "آزمایش یافت نشد.",
+    "Test name is required.": "نام آزمایش الزامی است.",
 })
 
 
@@ -817,6 +842,170 @@ def create_app(config: Config | None = None) -> FastAPI:
         except MediFlowError:
             log.exception("Complete failed for appointment %s", appointment_id)
         return RedirectResponse("/reception", status_code=303)
+
+    # -- laboratory ---------------------------------------------------------
+    @app.get("/laboratory", response_class=HTMLResponse)
+    def lab_worklist(request: Request, all: str = ""):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("lab.view"):
+            return _deny(request, user)
+        show_all = all == "1"
+        return TEMPLATES.TemplateResponse(request, "laboratory.html", {
+            "user": user, "show_all": show_all,
+            "requests": container.lab.list_requests(open_only=not show_all),
+            "status_fa": LAB_STATUS_FA, "flag_fa": LAB_FLAG_FA,
+        })
+
+    @app.get("/laboratory/tests", response_class=HTMLResponse)
+    def lab_tests(request: Request, error: str | None = None):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("lab.view"):
+            return _deny(request, user)
+        return TEMPLATES.TemplateResponse(request, "lab_tests.html", {
+            "user": user, "tests": container.lab.list_tests(), "error": error,
+        })
+
+    @app.post("/laboratory/tests", response_class=HTMLResponse)
+    async def lab_test_create(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not (user.can("lab.result") or user.can("lab.request")):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            container.lab.create_test(LabTestInput(
+                name=(form.get("name") or "").strip(),
+                code=_clean(form, "code"),
+                sample_type=_clean(form, "sample_type"),
+                price=float(form.get("price") or 0),
+                reference_range=_clean(form, "reference_range"),
+                unit=_clean(form, "unit"),
+            ))
+        except (MediFlowError, ValueError) as exc:
+            return TEMPLATES.TemplateResponse(request, "lab_tests.html", {
+                "user": user, "tests": container.lab.list_tests(),
+                "error": _fa_error(exc),
+            }, status_code=400)
+        return RedirectResponse("/laboratory/tests", status_code=303)
+
+    @app.post("/laboratory/tests/{test_id}/delete")
+    def lab_test_delete(request: Request, test_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not (user.can("lab.result") or user.can("lab.request")):
+            return _deny(request, user)
+        try:
+            container.lab.delete_test(test_id)
+        except MediFlowError:
+            log.exception("Deleting lab test %s failed", test_id)
+        return RedirectResponse("/laboratory/tests", status_code=303)
+
+    @app.get("/laboratory/request", response_class=HTMLResponse)
+    def lab_request_form(request: Request, patient_id: int | None = None):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("lab.request"):
+            return _deny(request, user)
+        return TEMPLATES.TemplateResponse(request, "lab_request_form.html", {
+            "user": user, "error": None,
+            "patients": container.patients.list_recent(limit=500),
+            "tests": container.lab.list_tests(),
+            "preselect_patient": patient_id,
+        })
+
+    @app.post("/laboratory/request", response_class=HTMLResponse)
+    async def lab_request_create(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("lab.request"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            if not form.get("patient_id"):
+                raise ValidationError("بیمار را انتخاب کنید.", field="patient_id")
+            if not form.get("lab_test_id"):
+                raise ValidationError("آزمایش را انتخاب کنید.", field="lab_test_id")
+            container.lab.create_request(int(form["patient_id"]),
+                                         int(form["lab_test_id"]),
+                                         requested_by_id=user.id)
+        except (MediFlowError, ValueError) as exc:
+            return TEMPLATES.TemplateResponse(request, "lab_request_form.html", {
+                "user": user, "error": _fa_error(exc),
+                "patients": container.patients.list_recent(limit=500),
+                "tests": container.lab.list_tests(),
+                "preselect_patient": None,
+            }, status_code=400)
+        return RedirectResponse("/laboratory", status_code=303)
+
+    @app.get("/laboratory/{request_id}/result", response_class=HTMLResponse)
+    def lab_result_form(request: Request, request_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("lab.result"):
+            return _deny(request, user)
+        req = next((r for r in container.lab.list_requests(limit=1000)
+                    if r.id == request_id), None)
+        if req is None:
+            return _deny(request, user, "درخواست آزمایش یافت نشد.")
+        return TEMPLATES.TemplateResponse(request, "lab_result_form.html", {
+            "user": user, "req": req, "error": None,
+            "flags": LAB_FLAGS, "status_fa": LAB_STATUS_FA,
+        })
+
+    @app.post("/laboratory/{request_id}/result", response_class=HTMLResponse)
+    async def lab_result_save(request: Request, request_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("lab.result"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            container.lab.set_result(request_id, form.get("result_value") or "",
+                                     flag=_clean(form, "result_flag"),
+                                     notes=_clean(form, "notes"))
+        except MediFlowError as exc:
+            req = next((r for r in container.lab.list_requests(limit=1000)
+                        if r.id == request_id), None)
+            return TEMPLATES.TemplateResponse(request, "lab_result_form.html", {
+                "user": user, "req": req, "error": _fa_error(exc),
+                "flags": LAB_FLAGS, "status_fa": LAB_STATUS_FA,
+            }, status_code=400)
+        return RedirectResponse("/laboratory?all=1", status_code=303)
+
+    # Declared AFTER /result on purpose: FastAPI matches in declaration order,
+    # and a catch-all {action} placed first swallows "result" and rejects it as
+    # an unknown action.
+    @app.post("/laboratory/{request_id}/{action}")
+    def lab_advance(request: Request, request_id: int, action: str):
+        """Move a request along its workflow: collect -> start -> cancel."""
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("lab.result"):
+            return _deny(request, user)
+        handlers = {
+            "collect": container.lab.collect_sample,
+            "start": container.lab.start,
+            "cancel": container.lab.cancel,
+        }
+        handler = handlers.get(action)
+        if handler is None:
+            return _deny(request, user, "اقدام نامعتبر است.")
+        try:
+            handler(request_id)
+        except MediFlowError:
+            log.exception("Lab action %s failed for request %s", action, request_id)
+        return RedirectResponse("/laboratory", status_code=303)
 
     # -- billing ------------------------------------------------------------
     @app.get("/billing", response_class=HTMLResponse)

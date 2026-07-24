@@ -1,0 +1,43 @@
+{% extends "_shell.html" %}
+{% set active = 'laboratory' %}
+{% block title %}درخواست آزمایش — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><h1 class="page-title">درخواست آزمایش</h1></div>
+  <a class="btn-ghost btn-inline" href="/laboratory">بازگشت</a>
+</div>
+
+{% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
+
+<form class="card form-card narrow-card" method="post" action="/laboratory/request">
+  <label class="field-label" for="patient_id">بیمار <span class="req">*</span></label>
+  <select class="field" id="patient_id" name="patient_id" required>
+    <option value="">— انتخاب بیمار —</option>
+    {% for p in patients %}
+    <option value="{{ p.id }}" {% if preselect_patient == p.id %}selected{% endif %}>
+      {{ p.full_name }} — {{ p.mrn }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <label class="field-label" for="lab_test_id">آزمایش <span class="req">*</span></label>
+  <select class="field" id="lab_test_id" name="lab_test_id" required>
+    <option value="">— انتخاب آزمایش —</option>
+    {% for t in tests %}
+    <option value="{{ t.id }}">
+      {{ t.name }}{% if t.sample_type %} — {{ t.sample_type }}{% endif %}{% if t.price %} — {{ '%.0f' % t.price }}{% endif %}
+    </option>
+    {% endfor %}
+  </select>
+  {% if not tests %}
+  <p class="field-hint">
+    هنوز آزمایشی تعریف نشده — اول از <a href="/laboratory/tests">فهرست آزمایش‌ها</a> اضافه کنید.
+  </p>
+  {% endif %}
+
+  <div class="form-actions">
+    <button class="btn-primary" type="submit">ثبت درخواست</button>
+  </div>
+</form>
+{% endblock %}

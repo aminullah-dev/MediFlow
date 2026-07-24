@@ -442,3 +442,19 @@ a.stat:hover { border-color: var(--primary); }
   .table thead th, .totals-box { background: #f2f2f2; color: #000; }
   .mono, .status { color: #000 !important; }
 }
+
+/* ---- laboratory -------------------------------------------------------- */
+.status-lab-requested        { background: var(--surface-alt); color: var(--muted); }
+.status-lab-sample_collected { background: #3a2f0e; color: #e0a93a; }
+.status-lab-in_progress      { background: #0e2a3a; color: #4aa8e0; }
+.status-lab-completed        { background: #10331c; color: #37c26a; }
+.status-lab-cancelled        { background: var(--danger-soft); color: var(--danger); }
+
+/* Abnormal results have to be readable at a glance on the worklist. */
+.tag.flag-normal   { background: #10331c; color: #37c26a; }
+.tag.flag-high,
+.tag.flag-low      { background: #3a2f0e; color: #e0a93a; }
+.tag.flag-critical { background: var(--danger-soft); color: var(--danger); }
+
+.btn-ghost.active-toggle { border-color: var(--primary); color: var(--primary); }
+a.btn-mini { text-decoration: none; display: inline-block; }

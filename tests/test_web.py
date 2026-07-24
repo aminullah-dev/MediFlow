@@ -478,3 +478,84 @@ def test_a_cancelled_invoice_cannot_be_paid(client):
     r = client.post(f"/billing/{iid}/payment", data={"amount": "10", "method": "cash"})
     assert r.status_code == 400
     assert "لغو" in r.text
+
+
+# -- laboratory -------------------------------------------------------------
+def _lab_test(client, app, name="ویتامین D"):
+    client.post("/laboratory/tests",
+                data={"name": name, "code": "VITD", "sample_type": "Blood",
+                      "reference_range": "30-100", "unit": "ng/mL", "price": "350"})
+    return next(t.id for t in app.state.container.lab.list_tests() if t.name == name)
+
+
+def _lab_request(client, app, pid):
+    import re
+
+    tid = _lab_test(client, app)
+    client.post("/laboratory/request",
+                data={"patient_id": str(pid), "lab_test_id": str(tid)})
+    board = client.get("/laboratory").text
+    return int(re.search(r"/laboratory/(\d+)/collect", board).group(1))
+
+
+def test_lab_catalogue_ships_with_seeded_tests(client):
+    page = client.get("/laboratory/tests").text
+    assert "Complete Blood Count" in page
+    assert "70–110" in page, "reference ranges come from the seed"
+
+
+def test_request_moves_through_collect_start_and_result(client, app):
+    pid = _new_patient(client)
+    rid = _lab_request(client, app, pid)
+    assert "درخواست‌شده" in client.get("/laboratory").text
+
+    client.post(f"/laboratory/{rid}/collect")
+    assert "نمونه گرفته شد" in client.get("/laboratory").text
+
+    client.post(f"/laboratory/{rid}/start")
+    assert "در حال انجام" in client.get("/laboratory").text
+
+    r = client.post(f"/laboratory/{rid}/result",
+                    data={"result_value": "18", "result_flag": "low"},
+                    follow_redirects=False)
+    assert r.status_code == 303, "the /result route must not be swallowed by the {action} catch-all"
+
+    board = client.get("/laboratory?all=1").text
+    assert "تکمیل شده" in board
+    assert "18" in board
+    assert "پایین" in board and "flag-low" in board
+
+
+def test_the_technician_sees_the_reference_range_when_entering_a_result(client, app):
+    """It is what tells them whether the value is abnormal, so it belongs on
+    the entry screen rather than only in the catalogue."""
+    pid = _new_patient(client)
+    rid = _lab_request(client, app, pid)
+    client.post(f"/laboratory/{rid}/collect")
+    form = client.get(f"/laboratory/{rid}/result").text
+    assert "30-100" in form
+    assert "ng/mL" in form
+
+
+def test_completed_and_cancelled_requests_leave_the_open_worklist(client, app):
+    pid = _new_patient(client)
+    rid = _lab_request(client, app, pid)
+    client.post(f"/laboratory/{rid}/cancel")
+    assert "نادیه صافی" not in client.get("/laboratory").text
+    assert "لغو شده" in client.get("/laboratory?all=1").text
+
+
+def test_a_blank_result_is_refused_in_dari(client, app):
+    pid = _new_patient(client)
+    rid = _lab_request(client, app, pid)
+    client.post(f"/laboratory/{rid}/collect")
+    r = client.post(f"/laboratory/{rid}/result", data={"result_value": "   "})
+    assert r.status_code == 400
+    assert "مقدار نتیجه الزامی" in r.text
+
+
+def test_a_request_needs_both_a_patient_and_a_test(client, app):
+    tid = _lab_test(client, app)
+    r = client.post("/laboratory/request", data={"patient_id": "", "lab_test_id": str(tid)})
+    assert r.status_code == 400
+    assert "بیمار را انتخاب کنید" in r.text

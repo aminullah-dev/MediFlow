@@ -17,6 +17,9 @@
     {% if user.can('pharmacy.view') %}
     <a href="/pharmacy" class="{{ 'active' if active == 'pharmacy' }}">دواخانه</a>
     {% endif %}
+    {% if user.can('lab.view') %}
+    <a href="/laboratory" class="{{ 'active' if active == 'laboratory' }}">لابراتوار</a>
+    {% endif %}
     {% if user.can('billing.view') %}
     <a href="/billing" class="{{ 'active' if active == 'billing' }}">صورتحساب</a>
     {% endif %}
