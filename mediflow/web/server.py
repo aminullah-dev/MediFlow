@@ -15,6 +15,8 @@ from __future__ import annotations
 import os
 import re
 import secrets
+import shutil
+import tempfile
 from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -23,6 +25,7 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.background import BackgroundTask
 from starlette.middleware.sessions import SessionMiddleware
 
 from mediflow.app import build_container
@@ -53,6 +56,7 @@ from mediflow.services.appointment_service import AppointmentBooking
 from mediflow.services.billing_service import InvoiceInput, LineInput
 from mediflow.services.lab_service import LabTestInput
 from mediflow.services.patient_service import PatientRegistration
+from mediflow.services.report_service import REPORTS, export_excel
 from mediflow.services.pharmacy_service import MedicationInput
 from mediflow.services.user_service import UserInput
 
@@ -266,6 +270,54 @@ _ERROR_FA.update({
     "Medication not found.": "دارو یافت نشد.",
     "Medication name is required.": "نام دارو الزامی است.",
 })
+
+
+# Reports are defined in English in the service (shared with the desktop) and
+# translated at the edge. Covers every key the six reports emit.
+REPORT_TITLE_FA = {
+    "patients": "خلاصه بیماران",
+    "appointments": "خلاصه نوبت‌ها",
+    "revenue": "خلاصه درآمد",
+    "pharmacy": "موجودی دواخانه",
+    "inventory": "موجودی انبار",
+    "lab": "خلاصه لابراتوار",
+}
+
+REPORT_LABEL_FA = {
+    "Total": "مجموع",
+    "Total patients": "مجموع بیماران",
+    "Male": "مرد",
+    "Female": "زن",
+    "Registered this month": "ثبت‌شده در این ماه",
+    "Registered today": "ثبت‌شده امروز",
+    "Booked": "نوبت گرفته",
+    "Completed": "تکمیل‌شده",
+    "Cancelled": "لغو‌شده",
+    "No show": "غایب",
+    "Requested": "درخواست‌شده",
+    "In progress": "در حال انجام",
+    "Invoices": "تعداد صورتحساب",
+    "Invoiced": "مبلغ صادرشده",
+    "Collected": "دریافت‌شده",
+    "Outstanding": "باقی‌مانده",
+    "Medications": "تعداد دارو",
+    "Items": "تعداد قلم",
+    "Low stock": "رو به اتمام",
+    "Out of stock": "تمام‌شده",
+    "Expiring": "نزدیک انقضا",
+}
+
+REPORT_COLUMN_FA = {
+    "Invoice": "شماره صورتحساب",
+    "Patient": "بیمار",
+    "Total": "مجموع",
+    "Paid": "پرداخت‌شده",
+    "Medication": "دارو",
+    "Item": "قلم",
+    "Stock": "موجودی",
+    "Quantity": "تعداد",
+    "Reorder": "حد سفارش",
+}
 
 
 ACCOUNT_TYPE_FA = {
@@ -894,6 +946,64 @@ def create_app(config: Config | None = None) -> FastAPI:
         except MediFlowError:
             log.exception("Complete failed for appointment %s", appointment_id)
         return RedirectResponse("/reception", status_code=303)
+
+    # -- reports ------------------------------------------------------------
+    @app.get("/reports", response_class=HTMLResponse)
+    def reports_index(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("report.view"):
+            return _deny(request, user)
+        return TEMPLATES.TemplateResponse(request, "reports.html", {
+            "user": user, "reports": REPORTS, "report_fa": REPORT_TITLE_FA,
+            "result": None, "chosen": None,
+        })
+
+    @app.get("/reports/{key}", response_class=HTMLResponse)
+    def report_show(request: Request, key: str):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("report.view"):
+            return _deny(request, user)
+        try:
+            result = container.reports.generate(key)
+        except KeyError:
+            return _deny(request, user, "گزارش مورد نظر یافت نشد.")
+        return TEMPLATES.TemplateResponse(request, "reports.html", {
+            "user": user, "reports": REPORTS, "report_fa": REPORT_TITLE_FA,
+            "result": result, "chosen": key,
+            "label_fa": REPORT_LABEL_FA, "column_fa": REPORT_COLUMN_FA,
+        })
+
+    @app.get("/reports/{key}/export")
+    def report_export(request: Request, key: str):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("report.export"):
+            return _deny(request, user, "برای خروجی گرفتن به دسترسی «صدور گزارش» نیاز است.")
+        try:
+            result = container.reports.generate(key)
+        except KeyError:
+            return _deny(request, user, "گزارش مورد نظر یافت نشد.")
+        # Reuse the desktop's writer so both builds produce the same workbook,
+        # handing it the Dari strings that are on screen.
+        target = Path(tempfile.mkdtemp(prefix="mediflow_report_"))
+        path = export_excel(
+            result, target,
+            title=REPORT_TITLE_FA.get(result.key, result.title),
+            summary_labels=REPORT_LABEL_FA,
+            column_labels=REPORT_COLUMN_FA,
+        )
+        filename = f"{REPORT_TITLE_FA.get(result.key, result.key)}.xlsx"
+        return FileResponse(
+            path, filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            # Delete the scratch copy once it has been sent. A clinic server
+            # runs for months, and one abandoned folder per export adds up.
+            background=BackgroundTask(shutil.rmtree, target, ignore_errors=True))
 
     # -- accounting ---------------------------------------------------------
     def _accounts_page(request: Request, user, **extra):

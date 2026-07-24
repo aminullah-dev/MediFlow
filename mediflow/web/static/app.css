@@ -468,3 +468,17 @@ a.btn-mini { text-decoration: none; display: inline-block; }
 .hint.balanced { color: var(--success, #37c26a); }
 .totals-row td { border-top: 2px solid var(--border); background: var(--surface-alt); }
 .lines-table .acct { min-width: 190px; }
+
+/* ---- reports ----------------------------------------------------------- */
+.report-tabs {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
+}
+.report-tabs a {
+  padding: 9px 15px; border-radius: 9px; text-decoration: none;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--muted); font-weight: 600; font-size: 14px;
+}
+.report-tabs a:hover { border-color: var(--primary); color: var(--text); }
+.report-tabs a.active {
+  background: var(--primary); border-color: var(--primary); color: var(--on-primary);
+}

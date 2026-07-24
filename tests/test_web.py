@@ -685,3 +685,67 @@ def test_an_account_used_by_an_entry_cannot_be_deleted(client, app):
     _post_entry(client, app)
     cash = _accounts(app)["1000"]
     assert "قابل حذف نیست" in client.post(f"/accounting/accounts/{cash}/delete").text
+
+
+# -- reports ----------------------------------------------------------------
+def test_every_report_renders(client):
+    from mediflow.services.report_service import REPORTS
+
+    index = client.get("/reports").text
+    assert "خلاصه بیماران" in index and "خلاصه درآمد" in index
+    for key, _ in REPORTS:
+        assert client.get(f"/reports/{key}").status_code == 200, key
+
+
+def test_report_labels_and_columns_are_dari(client):
+    _new_patient(client)
+    page = client.get("/reports/patients").text
+    assert "مجموع بیماران" in page and "مرد" in page and "زن" in page
+
+    pid = _new_patient(client, first_name="زهرا", last_name="احمدی")
+    client.post("/billing/new", data={"patient_id": str(pid),
+                "line_description": ["معاینه"], "line_quantity": ["1"],
+                "line_unit_price": ["500"]})
+    revenue = client.get("/reports/revenue").text
+    assert "مبلغ صادرشده" in revenue and "باقی‌مانده" in revenue
+    assert "شماره صورتحساب" in revenue, "detail columns are translated too"
+
+
+def test_an_unknown_report_key_is_refused_not_crashed(client):
+    """generate() raises KeyError for an unknown key; that must not be a 500."""
+    assert client.get("/reports/nope").status_code == 403
+
+
+def test_excel_export_is_a_real_workbook_in_dari(client):
+    """The desktop's writer is reused, so both builds export the same file."""
+    import io
+
+    from openpyxl import load_workbook
+
+    pid = _new_patient(client)
+    client.post("/billing/new", data={"patient_id": str(pid),
+                "line_description": ["معاینه"], "line_quantity": ["1"],
+                "line_unit_price": ["500"]})
+
+    r = client.get("/reports/revenue/export")
+    assert r.status_code == 200
+    assert r.content[:2] == b"PK", "xlsx is a zip container"
+
+    sheet = load_workbook(io.BytesIO(r.content)).active
+    values = [str(c.value) for row in sheet.iter_rows() for c in row if c.value is not None]
+    assert any("خلاصه درآمد" in v for v in values), "title"
+    assert any("باقی‌مانده" in v for v in values), "summary labels"
+    assert any("شماره صورتحساب" in v for v in values), "column headers"
+
+
+def test_exporting_leaves_no_scratch_directories_behind(client):
+    """A clinic server runs for months; one abandoned folder per export adds up."""
+    import glob
+    import os
+    import tempfile
+
+    pattern = os.path.join(tempfile.gettempdir(), "mediflow_report_*")
+    before = len(glob.glob(pattern))
+    for _ in range(3):
+        assert client.get("/reports/patients/export").status_code == 200
+    assert len(glob.glob(pattern)) <= before

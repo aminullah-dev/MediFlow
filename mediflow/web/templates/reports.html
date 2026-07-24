@@ -1,0 +1,63 @@
+{% extends "_shell.html" %}
+{% set active = 'reports' %}
+{% block title %}گزارش‌ها — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">گزارش‌ها</h1>
+    <p class="page-sub">
+      {% if result %}{{ report_fa.get(result.key, result.title) }}{% else %}یک گزارش انتخاب کنید{% endif %}
+    </p>
+  </div>
+  {% if result and user.can('report.export') %}
+  <a class="btn-primary btn-inline" href="/reports/{{ result.key }}/export">دانلود Excel</a>
+  {% endif %}
+</div>
+
+<nav class="report-tabs">
+  {% for key, title in reports %}
+  <a href="/reports/{{ key }}" class="{{ 'active' if chosen == key }}">{{ report_fa.get(key, title) }}</a>
+  {% endfor %}
+</nav>
+
+{% if result %}
+{% if result.summary %}
+<section class="stat-grid">
+  {% for label, value in result.summary %}
+  <div class="stat">
+    <span class="stat-value">{{ value }}</span>
+    <span class="stat-label">{{ label_fa.get(label, label) }}</span>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if result.columns %}
+<section class="card record-card">
+  <h2 class="section-title">جزئیات <span class="count">{{ result.rows | length }}</span></h2>
+  {% if result.rows %}
+  <div class="table-wrap flush">
+    <table class="table">
+      <thead>
+        <tr>{% for c in result.columns %}<th>{{ column_fa.get(c, c) }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for row in result.rows %}
+        <tr>{% for cell in row %}<td class="mono">{{ cell }}</td>{% endfor %}</tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="queue-empty">داده‌ای برای نمایش وجود ندارد.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% else %}
+<div class="card empty">
+  <p>برای دیدن نتیجه، یکی از گزارش‌های بالا را انتخاب کنید.</p>
+</div>
+{% endif %}
+{% endblock %}
