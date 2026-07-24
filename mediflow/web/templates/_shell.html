@@ -14,12 +14,16 @@
     {% if user.can('reception.checkin') or user.can('reception.queue') %}
     <a href="/reception" class="{{ 'active' if active == 'reception' }}">پذیرش</a>
     {% endif %}
+    {% if user.can('user.view') %}
+    <a href="/users" class="{{ 'active' if active == 'users' }}">کاربران</a>
+    {% endif %}
   </nav>
   <div class="topbar-spacer"></div>
   <div class="topbar-user">
     <span class="avatar">{{ user.full_name[:1] | upper }}</span>
     <span>{{ user.full_name }}</span>
   </div>
+  <a class="btn-ghost btn-inline" href="/account/password">تغییر رمز عبور</a>
   <form method="post" action="/logout">
     <button class="btn-ghost" type="submit">خروج از حساب</button>
   </form>

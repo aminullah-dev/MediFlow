@@ -39,6 +39,7 @@ from mediflow.data.database import current_permissions, current_user_id
 from mediflow.services.dashboard_service import DashboardService
 from mediflow.services.appointment_service import AppointmentBooking
 from mediflow.services.patient_service import PatientRegistration
+from mediflow.services.user_service import UserInput
 
 log = get_logger("web")
 
@@ -177,6 +178,65 @@ def _echo(form, patient_id: int | None = None) -> SimpleNamespace:
     )
 
 
+# Permission modules, for the role editor's group headings.
+MODULE_FA = {
+    "dashboard": "داشبورد", "patient": "بیماران", "appointment": "نوبت‌ها",
+    "reception": "پذیرش", "emr": "سوابق طبی", "prescription": "نسخه",
+    "pharmacy": "دواخانه", "lab": "لابراتوار", "inventory": "انبار",
+    "billing": "صورتحساب", "accounting": "حسابداری", "hr": "منابع بشری",
+    "report": "گزارش‌ها", "user": "کاربران", "audit": "ممیزی",
+    "backup": "پشتیبان‌گیری", "settings": "تنظیمات",
+}
+
+_ERROR_FA.update({
+    "Username is required.": "نام کاربری الزامی است.",
+    "Full name is required.": "نام کامل الزامی است.",
+    "That username is already taken.": "این نام کاربری قبلاً گرفته شده است.",
+    "Role name is required.": "نام نقش الزامی است.",
+    "A role with that name already exists.": "نقشی با این نام از قبل وجود دارد.",
+    "System roles cannot be deleted.": "نقش‌های سیستمی قابل حذف نیستند.",
+    "Cannot delete a role that is assigned to users.":
+        "نقشی که به کاربران داده شده قابل حذف نیست.",
+    "You cannot deactivate your own account.":
+        "نمی‌توانید حساب خودتان را غیرفعال کنید.",
+    "You cannot delete your own account.": "نمی‌توانید حساب خودتان را حذف کنید.",
+})
+
+
+def _user_input_from(form) -> UserInput:
+    return UserInput(
+        username=(form.get("username") or "").strip(),
+        full_name=(form.get("full_name") or "").strip(),
+        email=_clean(form, "email"),
+        phone=_clean(form, "phone"),
+        is_active=bool(form.get("is_active")),
+        role_ids=[int(v) for v in form.getlist("role_ids") if str(v).strip().isdigit()],
+    )
+
+
+def _echo_user(form, user_id: int | None = None) -> SimpleNamespace:
+    """Re-render the user form after a failure without losing the input."""
+    return SimpleNamespace(
+        id=user_id,
+        username=form.get("username") or "",
+        full_name=form.get("full_name") or "",
+        email=form.get("email") or "",
+        phone=form.get("phone") or "",
+        is_active=bool(form.get("is_active")),
+        must_change_password=False,
+        role_ids=[int(v) for v in form.getlist("role_ids") if str(v).strip().isdigit()],
+        role_names=[],
+    )
+
+
+def _echo_role(form) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=None, name=form.get("name") or "",
+        description=form.get("description") or "",
+        is_system=False, permission_codes=set(form.getlist("permissions")),
+    )
+
+
 def _session_secret(config: Config) -> str:
     """A stable per-installation cookie key, kept beside the other secrets.
 
@@ -212,8 +272,6 @@ def create_app(config: Config | None = None) -> FastAPI:
     app = FastAPI(title="MediFlow", docs_url=None, redoc_url=None)
     app.state.container = container
     app.state.config = config
-    app.add_middleware(SessionMiddleware, secret_key=_session_secret(config),
-                       session_cookie="mediflow_session", https_only=False)
     app.mount("/static", StaticFiles(directory=str(_HERE / "static")), name="static")
 
     def _current_user(request: Request):
@@ -232,6 +290,27 @@ def create_app(config: Config | None = None) -> FastAPI:
         current_user_id.set(user.id)
         current_permissions.set(frozenset(user.permissions))
         return user
+
+    # Paths reachable while still holding a temporary password. Everything else
+    # bounces to the change-password page: a freshly created account must not
+    # be able to work under a credential the administrator also knows.
+    _PASSWORD_EXEMPT = {"/account/password", "/logout", "/healthz"}
+
+    @app.middleware("http")
+    async def force_password_change(request: Request, call_next):
+        path = request.url.path
+        if (path not in _PASSWORD_EXEMPT and not path.startswith("/static")
+                and request.session.get("user_id")):
+            current = container.auth.load_session_user(request.session["user_id"])
+            if current is not None and current.must_change_password:
+                return RedirectResponse("/account/password", status_code=303)
+        return await call_next(request)
+
+    # Added LAST on purpose. Starlette runs the most recently added middleware
+    # outermost, so this makes the session available to force_password_change
+    # above; registering it earlier left request.session unpopulated there.
+    app.add_middleware(SessionMiddleware, secret_key=_session_secret(config),
+                       session_cookie="mediflow_session", https_only=False)
 
     def _deny(request: Request, user,
               message: str = "شما اجازه‌ی دسترسی به این بخش را ندارید."):
@@ -623,6 +702,259 @@ def create_app(config: Config | None = None) -> FastAPI:
         except MediFlowError:
             log.exception("Complete failed for appointment %s", appointment_id)
         return RedirectResponse("/reception", status_code=303)
+
+    # -- own password -------------------------------------------------------
+    @app.get("/account/password", response_class=HTMLResponse)
+    def password_form(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        return TEMPLATES.TemplateResponse(request, "change_password.html", {
+            "user": user, "error": None, "forced": user.must_change_password,
+        })
+
+    @app.post("/account/password", response_class=HTMLResponse)
+    async def password_change(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        form = await request.form()
+        new = form.get("new_password") or ""
+        error = None
+        if new != (form.get("confirm_password") or ""):
+            error = "رمزهای جدید مطابقت ندارند."
+        elif has_persian_layout_chars(new):
+            # Storing this would create a password that cannot be typed back
+            # once the layout is switched — the exact trap that locked this
+            # clinic out for days.
+            error = ("رمز جدید حروف فارسی دارد، یعنی کیبورد روی فارسی است. "
+                     "با Alt+Shift به انگلیسی تغییر دهید و دوباره تایپ کنید.")
+        else:
+            try:
+                container.auth.change_password(
+                    user.id, form.get("current_password") or "", new)
+            except MediFlowError as exc:
+                error = _fa_error(exc)
+        if error:
+            return TEMPLATES.TemplateResponse(request, "change_password.html", {
+                "user": user, "error": error, "forced": user.must_change_password,
+            }, status_code=400)
+        return RedirectResponse("/?password_changed=1", status_code=303)
+
+    # -- users and roles ----------------------------------------------------
+    def _users_page(request: Request, user, **extra):
+        ctx = {
+            "user": user,
+            "users": container.users.list_users(),
+            "roles": container.users.list_roles(),
+            "permission_total": sum(
+                len(perms) for _, perms in container.users.list_permission_groups()),
+            "credential": None,
+        }
+        ctx.update(extra)
+        return TEMPLATES.TemplateResponse(request, "users.html", ctx)
+
+    @app.get("/users", response_class=HTMLResponse)
+    def users_list(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("user.view"):
+            return _deny(request, user)
+        return _users_page(request, user)
+
+    @app.get("/users/new", response_class=HTMLResponse)
+    def user_new_form(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("user.manage"):
+            return _deny(request, user)
+        return TEMPLATES.TemplateResponse(request, "user_form.html", {
+            "user": user, "edited": None, "error": None,
+            "roles": container.users.list_roles(),
+        })
+
+    @app.post("/users/new", response_class=HTMLResponse)
+    async def user_create(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("user.manage"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            temp = container.users.create_user(_user_input_from(form))
+        except MediFlowError as exc:
+            return TEMPLATES.TemplateResponse(request, "user_form.html", {
+                "user": user, "edited": _echo_user(form), "error": _fa_error(exc),
+                "roles": container.users.list_roles(),
+            }, status_code=400)
+        # Shown once, on screen. There is nowhere else to retrieve it from.
+        return _users_page(request, user, credential={
+            "username": (form.get("username") or "").strip(),
+            "password": temp,
+            "kind": "new",
+        })
+
+    @app.get("/users/{user_id}", response_class=HTMLResponse)
+    def user_edit_form(request: Request, user_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("user.manage"):
+            return _deny(request, user)
+        try:
+            edited = container.users.get_user(user_id)
+        except MediFlowError:
+            return _deny(request, user, "کاربر مورد نظر یافت نشد.")
+        return TEMPLATES.TemplateResponse(request, "user_form.html", {
+            "user": user, "edited": edited, "error": None,
+            "roles": container.users.list_roles(),
+        })
+
+    @app.post("/users/{user_id}", response_class=HTMLResponse)
+    async def user_update(request: Request, user_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("user.manage"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            container.users.update_user(user_id, _user_input_from(form))
+        except MediFlowError as exc:
+            edited = _echo_user(form, user_id=user_id)
+            return TEMPLATES.TemplateResponse(request, "user_form.html", {
+                "user": user, "edited": edited, "error": _fa_error(exc),
+                "roles": container.users.list_roles(),
+            }, status_code=400)
+        return RedirectResponse("/users", status_code=303)
+
+    @app.post("/users/{user_id}/reset-password", response_class=HTMLResponse)
+    def user_reset_password(request: Request, user_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("user.manage"):
+            return _deny(request, user)
+        try:
+            target = container.users.get_user(user_id)
+            temp = container.users.reset_password(user_id)
+        except MediFlowError as exc:
+            return _users_page(request, user, error=_fa_error(exc))
+        return _users_page(request, user, credential={
+            "username": target.username, "password": temp, "kind": "reset",
+        })
+
+    @app.post("/users/{user_id}/active")
+    def user_set_active(request: Request, user_id: int, active: str = Form("0")):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("user.manage"):
+            return _deny(request, user)
+        try:
+            container.users.set_active(user_id, active == "1")
+        except MediFlowError as exc:
+            return _users_page(request, user, error=_fa_error(exc))
+        return RedirectResponse("/users", status_code=303)
+
+    @app.post("/users/{user_id}/delete")
+    def user_delete(request: Request, user_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("user.manage"):
+            return _deny(request, user)
+        try:
+            container.users.delete_user(user_id)
+        except MediFlowError as exc:
+            return _users_page(request, user, error=_fa_error(exc))
+        return RedirectResponse("/users", status_code=303)
+
+    # -- roles --------------------------------------------------------------
+    @app.get("/roles/new", response_class=HTMLResponse)
+    def role_new_form(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("user.manage"):
+            return _deny(request, user)
+        return TEMPLATES.TemplateResponse(request, "role_form.html", {
+            "user": user, "role": None, "error": None,
+            "groups": container.users.list_permission_groups(),
+            "module_fa": MODULE_FA,
+        })
+
+    @app.post("/roles/new", response_class=HTMLResponse)
+    async def role_create(request: Request):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("user.manage"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            container.users.create_role(form.get("name") or "",
+                                        _clean(form, "description"),
+                                        set(form.getlist("permissions")))
+        except MediFlowError as exc:
+            return TEMPLATES.TemplateResponse(request, "role_form.html", {
+                "user": user, "role": _echo_role(form), "error": _fa_error(exc),
+                "groups": container.users.list_permission_groups(),
+                "module_fa": MODULE_FA,
+            }, status_code=400)
+        return RedirectResponse("/users", status_code=303)
+
+    @app.get("/roles/{role_id}", response_class=HTMLResponse)
+    def role_edit_form(request: Request, role_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("user.manage"):
+            return _deny(request, user)
+        role = next((r for r in container.users.list_roles() if r.id == role_id), None)
+        if role is None:
+            return _deny(request, user, "نقش مورد نظر یافت نشد.")
+        return TEMPLATES.TemplateResponse(request, "role_form.html", {
+            "user": user, "role": role, "error": None,
+            "groups": container.users.list_permission_groups(),
+            "module_fa": MODULE_FA,
+        })
+
+    @app.post("/roles/{role_id}", response_class=HTMLResponse)
+    async def role_update(request: Request, role_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("user.manage"):
+            return _deny(request, user)
+        form = await request.form()
+        try:
+            container.users.update_role(role_id, _clean(form, "description"),
+                                        set(form.getlist("permissions")))
+        except MediFlowError as exc:
+            role = next((r for r in container.users.list_roles() if r.id == role_id), None)
+            return TEMPLATES.TemplateResponse(request, "role_form.html", {
+                "user": user, "role": role, "error": _fa_error(exc),
+                "groups": container.users.list_permission_groups(),
+                "module_fa": MODULE_FA,
+            }, status_code=400)
+        return RedirectResponse("/users", status_code=303)
+
+    @app.post("/roles/{role_id}/delete")
+    def role_delete(request: Request, role_id: int):
+        user = _current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if not user.can("user.manage"):
+            return _deny(request, user)
+        try:
+            container.users.delete_role(role_id)
+        except MediFlowError as exc:
+            return _users_page(request, user, error=_fa_error(exc))
+        return RedirectResponse("/users", status_code=303)
 
     @app.get("/healthz")
     def healthz():

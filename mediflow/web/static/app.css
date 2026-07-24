@@ -337,3 +337,33 @@ a.stat:hover { border-color: var(--primary); }
 .inline-form .field.narrow { flex: 0 0 140px; min-width: 120px; }
 .checkline.tight { margin-top: 0; white-space: nowrap; }
 .table-wrap.flush { border: 0; border-radius: 0; background: transparent; }
+
+/* ---- users & roles ----------------------------------------------------- */
+.credential {
+  padding: 20px; margin-bottom: 16px;
+  border-inline-start: 3px solid var(--primary);
+}
+.cred-warn { color: var(--warn); font-weight: 600; margin: 0 0 12px; }
+.cred-kv { grid-template-columns: auto 1fr; align-items: center; }
+.cred-kv dd { display: flex; align-items: center; gap: 10px; }
+.big { font-size: 20px; font-weight: 700; letter-spacing: 1px; color: var(--primary); }
+
+.check-grid {
+  display: grid; gap: 6px 18px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 4px;
+}
+
+.perm-groups {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+.perm-group {
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; margin: 0; background: var(--surface-alt);
+}
+.perm-group legend {
+  padding: 0 6px; color: var(--primary); font-weight: 700; font-size: 13px;
+}
+.perm-group .checkline { margin-top: 4px; color: var(--text); font-size: 14px; }
+.narrow-card { max-width: 460px; }

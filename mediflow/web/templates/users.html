@@ -1,0 +1,117 @@
+{% extends "_shell.html" %}
+{% set active = 'users' %}
+{% set can_manage = user.can('user.manage') %}
+{% block title %}کاربران و نقش‌ها — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">کاربران و نقش‌ها</h1>
+    <p class="page-sub">{{ users | length }} کاربر · {{ roles | length }} نقش · {{ permission_total }} دسترسی</p>
+  </div>
+  {% if can_manage %}
+  <div class="head-actions">
+    <a class="btn-primary btn-inline" href="/users/new">+ کاربر جدید</a>
+    <a class="btn-ghost btn-inline" href="/roles/new">+ نقش جدید</a>
+  </div>
+  {% endif %}
+</div>
+
+{% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
+
+{% if credential %}
+{# Shown exactly once. Nothing stores this in readable form afterwards, so if
+   it is lost the only remedy is another reset. #}
+<section class="card credential">
+  <h2 class="section-title">
+    {% if credential.kind == 'new' %}کاربر ساخته شد{% else %}رمز بازنشانی شد{% endif %}
+  </h2>
+  <p class="cred-warn">این رمز فقط همین یک بار نشان داده می‌شود. آن را همین حالا یادداشت کنید.</p>
+  <dl class="kv cred-kv">
+    <dt>نام کاربری</dt><dd class="mono big">{{ credential.username }}</dd>
+    <dt>رمز موقت</dt>
+    <dd>
+      <span class="mono big" id="tempPass">{{ credential.password }}</span>
+      <button class="btn-mini" type="button" data-copy="tempPass">کپی</button>
+    </dd>
+  </dl>
+  <p class="field-hint">
+    فقط عدد است تا با هر چیدمان کیبورد (انگلیسی یا فارسی) قابل تایپ باشد.
+    کاربر در اولین ورود باید آن را تغییر دهد.
+  </p>
+</section>
+{% endif %}
+
+<section class="card record-card">
+  <h2 class="section-title">کاربران <span class="count">{{ users | length }}</span></h2>
+  <div class="table-wrap flush">
+    <table class="table">
+      <thead>
+        <tr><th>نام کاربری</th><th>نام کامل</th><th>نقش‌ها</th><th>تلفن</th>
+            <th>وضعیت</th>{% if can_manage %}<th>اقدام</th>{% endif %}</tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td class="mono">{{ u.username }}{% if u.id == user.id %}<span class="tag">شما</span>{% endif %}</td>
+          <td>{% if can_manage %}<a href="/users/{{ u.id }}">{{ u.full_name }}</a>{% else %}{{ u.full_name }}{% endif %}</td>
+          <td>{{ u.role_names | join('، ') if u.role_names else '—' }}</td>
+          <td class="mono">{{ u.phone or '—' }}</td>
+          <td>
+            {% if u.is_active %}<span class="status status-completed">فعال</span>
+            {% else %}<span class="status status-cancelled">غیرفعال</span>{% endif %}
+            {% if u.must_change_password %}<span class="tag">باید رمز را عوض کند</span>{% endif %}
+          </td>
+          {% if can_manage %}
+          <td class="actions">
+            <form method="post" action="/users/{{ u.id }}/reset-password"
+                  onsubmit="return confirm('رمز فعلی «{{ u.username }}» پاک می‌شود و یک رمز موقت جدید ساخته می‌شود. ادامه؟');">
+              <button class="btn-mini" type="submit">بازنشانی رمز</button>
+            </form>
+            {% if u.id != user.id %}
+            <form method="post" action="/users/{{ u.id }}/active">
+              <input type="hidden" name="active" value="{{ '0' if u.is_active else '1' }}">
+              <button class="btn-mini" type="submit">{{ 'غیرفعال' if u.is_active else 'فعال' }}</button>
+            </form>
+            <form method="post" action="/users/{{ u.id }}/delete"
+                  onsubmit="return confirm('کاربر «{{ u.username }}» حذف شود؟');">
+              <button class="btn-mini danger" type="submit">حذف</button>
+            </form>
+            {% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if can_manage %}
+  <p class="field-hint">
+    برای رمز <strong>خودتان</strong> از «بازنشانی رمز» استفاده نکنید — از دکمه‌ی
+    «تغییر رمز عبور» استفاده کنید تا رمز دلخواه خودتان را بگذارید.
+  </p>
+  {% endif %}
+</section>
+
+<section class="card record-card">
+  <h2 class="section-title">نقش‌ها <span class="count">{{ roles | length }}</span></h2>
+  <ul class="record-list">
+    {% for r in roles %}
+    <li>
+      <div>
+        <strong>{% if can_manage %}<a href="/roles/{{ r.id }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}</strong>
+        {% if r.is_system %}<span class="tag">سیستمی</span>{% endif %}
+        <span class="meta">{{ r.permission_codes | length }} دسترسی</span>
+        {% if r.description %}<span class="meta">{{ r.description }}</span>{% endif %}
+      </div>
+      {% if can_manage and not r.is_system %}
+      <form method="post" action="/roles/{{ r.id }}/delete"
+            onsubmit="return confirm('نقش «{{ r.name }}» حذف شود؟');">
+        <button class="btn-mini danger" type="submit">حذف</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

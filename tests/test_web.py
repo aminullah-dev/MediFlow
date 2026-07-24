@@ -218,3 +218,102 @@ def test_deleting_an_allergy_leaves_the_visit_history_intact(client):
     page = client.get(f"/patients/{pid}/records").text
     assert "پنی‌سیلین" not in page
     assert "کنترل قند" in page
+
+
+# -- users, roles and own-password ------------------------------------------
+def _receptionist_role(app):
+    roles = app.state.container.users.list_roles()
+    return next(r for r in roles if r.name == "receptionist")
+
+
+def _create_user(client, app, username="nasrin"):
+    """Create a user and return the one-time temporary password."""
+    import re
+
+    r = client.post("/users/new", data={
+        "username": username, "full_name": "نسرین قادری", "is_active": "1",
+        "role_ids": [str(_receptionist_role(app).id)]})
+    assert r.status_code == 200, r.text[:400]
+    return re.search(r'id="tempPass">([^<]+)<', r.text).group(1).strip()
+
+
+def test_users_page_lists_accounts_and_roles(client):
+    page = client.get("/users").text
+    assert "کاربران و نقش‌ها" in page
+    assert "admin" in page
+    assert "شما" in page          # the signed-in account is marked
+
+
+def test_generated_temp_password_is_digits_only(client, app):
+    """Digits are identical on the US and Persian layouts, so the credential is
+    always typeable — the mixed alphabet used to emit P/U, which become ASCII
+    on the Persian layout and cannot be recovered."""
+    temp = _create_user(client, app)
+    assert temp.isdigit()
+    assert len(temp) >= 8
+
+
+def test_new_user_must_change_the_temp_password_before_working(app, client):
+    temp = _create_user(client, app)
+    fresh = TestClient(app)
+    assert fresh.post("/login", data={"username": "nasrin", "password": temp},
+                      follow_redirects=False).status_code == 303
+
+    bounced = fresh.get("/", follow_redirects=False)
+    assert bounced.status_code == 303
+    assert bounced.headers["location"] == "/account/password"
+
+    assert fresh.post("/account/password",
+                      data={"current_password": temp, "new_password": "Kabul2026",
+                            "confirm_password": "Kabul2026"},
+                      follow_redirects=False).status_code == 303
+    assert fresh.get("/", follow_redirects=False).status_code == 200
+
+
+def test_a_persian_typed_new_password_is_refused_not_stored(app, client):
+    """Storing it would produce a password that cannot be typed back."""
+    temp = _create_user(client, app)
+    fresh = TestClient(app)
+    fresh.post("/login", data={"username": "nasrin", "password": temp})
+    fresh.post("/account/password", data={"current_password": temp,
+               "new_password": "Kabul2026", "confirm_password": "Kabul2026"})
+    r = fresh.post("/account/password", data={"current_password": "Kabul2026",
+                   "new_password": "َئهد2026", "confirm_password": "َئهد2026"})
+    assert r.status_code == 400
+    assert "کیبورد" in r.text
+
+
+def test_receptionist_cannot_administer_users(app, client):
+    temp = _create_user(client, app)
+    fresh = TestClient(app)
+    fresh.post("/login", data={"username": "nasrin", "password": temp})
+    fresh.post("/account/password", data={"current_password": temp,
+               "new_password": "Kabul2026", "confirm_password": "Kabul2026"})
+    assert fresh.get("/users/new").status_code == 403
+    assert fresh.get("/reception").status_code == 200
+
+
+@pytest.mark.parametrize("path,data,needle", [
+    ("/users/1/delete", {}, "حساب خودتان"),
+    ("/users/1/active", {"active": "0"}, "حساب خودتان"),
+])
+def test_you_cannot_lock_yourself_out(client, path, data, needle):
+    assert needle in client.post(path, data=data).text
+
+
+def test_role_can_be_created_and_duplicates_are_refused(client):
+    r = client.post("/roles/new", data={"name": "تست نقش",
+                    "permissions": ["patient.view"]}, follow_redirects=False)
+    assert r.status_code == 303
+    assert "تست نقش" in client.get("/users").text
+
+    dup = client.post("/roles/new", data={"name": "تست نقش", "permissions": []})
+    assert dup.status_code == 400
+    assert "از قبل وجود دارد" in dup.text
+
+
+def test_password_reset_issues_a_fresh_credential(client, app):
+    _create_user(client, app)
+    r = client.post("/users/2/reset-password")
+    assert r.status_code == 200
+    assert "رمز بازنشانی شد" in r.text

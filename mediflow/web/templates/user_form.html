@@ -1,0 +1,74 @@
+{% extends "_shell.html" %}
+{% set active = 'users' %}
+{% set editing = edited is not none and edited.id %}
+{% block title %}{{ 'ویرایش کاربر' if editing else 'کاربر جدید' }} — مدی‌فلو{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ 'ویرایش کاربر' if editing else 'کاربر جدید' }}</h1>
+    {% if editing %}<p class="page-sub mono">{{ edited.username }}</p>{% endif %}
+  </div>
+  <a class="btn-ghost btn-inline" href="/users">بازگشت</a>
+</div>
+
+{% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
+
+<form class="card form-card" method="post"
+      action="{{ '/users/' ~ edited.id if editing else '/users/new' }}">
+  <div class="grid-2">
+    <div>
+      <label class="field-label" for="username">نام کاربری <span class="req">*</span></label>
+      {# Immutable once set: it is the login identity and appears throughout the
+         audit trail, so renaming would orphan those records. #}
+      <input class="field" id="username" name="username" required
+             value="{{ edited.username if edited else '' }}"
+             {% if editing %}readonly{% endif %}>
+      {% if editing %}<p class="field-hint">نام کاربری قابل تغییر نیست.</p>{% endif %}
+    </div>
+    <div>
+      <label class="field-label" for="full_name">نام کامل <span class="req">*</span></label>
+      <input class="field" id="full_name" name="full_name" required
+             value="{{ edited.full_name if edited else '' }}">
+    </div>
+    <div>
+      <label class="field-label" for="phone">تلفن</label>
+      <input class="field" id="phone" name="phone" inputmode="tel"
+             value="{{ edited.phone if edited and edited.phone else '' }}">
+    </div>
+    <div>
+      <label class="field-label" for="email">ایمیل</label>
+      <input class="field" id="email" name="email" type="email"
+             value="{{ edited.email if edited and edited.email else '' }}">
+    </div>
+  </div>
+
+  <label class="field-label">نقش‌ها</label>
+  <div class="check-grid">
+    {% for r in roles %}
+    <label class="checkline tight">
+      <input type="checkbox" name="role_ids" value="{{ r.id }}"
+             {% if edited and r.id in edited.role_ids %}checked{% endif %}>
+      <span>{{ r.name }}</span>
+    </label>
+    {% endfor %}
+  </div>
+  <p class="field-hint">دسترسی‌های کاربر از مجموع نقش‌هایش ساخته می‌شود.</p>
+
+  <label class="checkline">
+    <input type="checkbox" name="is_active" value="1"
+           {% if not edited or edited.is_active %}checked{% endif %}>
+    <span>حساب فعال باشد</span>
+  </label>
+
+  {% if not editing %}
+  <p class="field-hint">
+    پس از ساخت، یک رمز موقت عددی نمایش داده می‌شود — فقط همان یک بار.
+  </p>
+  {% endif %}
+
+  <div class="form-actions">
+    <button class="btn-primary" type="submit">{{ 'ذخیره تغییرات' if editing else 'ساخت کاربر' }}</button>
+  </div>
+</form>
+{% endblock %}
