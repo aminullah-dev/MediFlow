@@ -11,8 +11,8 @@ from mediflow.core.exceptions import ValidationError
 from mediflow.core.logging_config import get_logger
 from mediflow.data.base import utcnow
 from mediflow.data.database import Database
-from mediflow.services.authz import require
 from mediflow.data.models.hr import Attendance, Employee, Payslip
+from mediflow.services.authz import require
 
 log = get_logger("services.hr")
 

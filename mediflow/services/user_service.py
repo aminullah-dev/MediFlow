@@ -15,12 +15,12 @@ from mediflow.core.logging_config import get_logger
 from mediflow.core.security import generate_temporary_password, hash_password
 from mediflow.data.base import utcnow
 from mediflow.data.database import Database, current_user_id
-from mediflow.services.authz import require
 from mediflow.data.models.user import Permission, Role, User
 from mediflow.data.repositories.user_repository import (
     RoleRepository,
     UserRepository,
 )
+from mediflow.services.authz import require
 
 log = get_logger("services.user")
 

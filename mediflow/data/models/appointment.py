@@ -40,7 +40,7 @@ class Appointment(Base, AuditMixin):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     patient: Mapped[Patient] = relationship()
-    queue_token: Mapped["QueueToken | None"] = relationship(
+    queue_token: Mapped[QueueToken | None] = relationship(
         back_populates="appointment", uselist=False, cascade="all, delete-orphan"
     )
 

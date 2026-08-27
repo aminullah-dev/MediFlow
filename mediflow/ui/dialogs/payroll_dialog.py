@@ -18,11 +18,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-
 from mediflow.core.constants import PayslipStatus
 from mediflow.core.exceptions import MediFlowError
-from mediflow.services.hr_service import EmployeeDTO, HRService, PayslipDTO
 from mediflow.data.base import local_today
+from mediflow.services.hr_service import EmployeeDTO, HRService, PayslipDTO
 
 _STATUS_LABELS = {PayslipStatus.PENDING.value: "Pending", PayslipStatus.PAID.value: "Paid"}
 

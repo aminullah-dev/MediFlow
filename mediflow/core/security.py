@@ -110,7 +110,7 @@ class FieldCipher:
         self._fernet = Fernet(key)
 
     @classmethod
-    def from_key_file(cls, key_path: Path) -> "FieldCipher":
+    def from_key_file(cls, key_path: Path) -> FieldCipher:
         return cls(_load_or_create_key(key_path))
 
     @property

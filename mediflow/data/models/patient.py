@@ -39,13 +39,13 @@ class Patient(Base, AuditMixin):
     photo_path: Mapped[str | None] = mapped_column(String(255))
     notes: Mapped[str | None] = mapped_column(Text)
 
-    allergies: Mapped[list["PatientAllergy"]] = relationship(
+    allergies: Mapped[list[PatientAllergy]] = relationship(
         back_populates="patient", cascade="all, delete-orphan"
     )
-    conditions: Mapped[list["PatientCondition"]] = relationship(
+    conditions: Mapped[list[PatientCondition]] = relationship(
         back_populates="patient", cascade="all, delete-orphan"
     )
-    documents: Mapped[list["PatientDocument"]] = relationship(
+    documents: Mapped[list[PatientDocument]] = relationship(
         back_populates="patient", cascade="all, delete-orphan"
     )
 

@@ -1,7 +1,6 @@
 """Post a balanced double-entry journal entry."""
 from __future__ import annotations
 
-
 from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import (
     QComboBox,
@@ -21,8 +20,8 @@ from PySide6.QtWidgets import (
 
 from mediflow.core.exceptions import MediFlowError
 from mediflow.services.accounting_service import (
-    AccountingService,
     AccountDTO,
+    AccountingService,
     EntryInput,
     LineInput,
 )

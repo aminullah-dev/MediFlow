@@ -41,24 +41,24 @@ from mediflow.core.constants import (
 )
 from mediflow.core.exceptions import (
     AccountLockedError,
-    BackupError,
     AuthenticationError,
+    BackupError,
     MediFlowError,
     ValidationError,
 )
 from mediflow.core.keyboard import has_persian_layout_chars
 from mediflow.core.logging_config import configure_logging, get_logger
+from mediflow.data.base import local_now, local_today
 from mediflow.data.database import current_permissions, current_user_id
-from mediflow.services.dashboard_service import DashboardService
 from mediflow.services.accounting_service import EntryInput
 from mediflow.services.accounting_service import LineInput as JournalLineInput
 from mediflow.services.appointment_service import AppointmentBooking
 from mediflow.services.billing_service import InvoiceInput, LineInput
+from mediflow.services.dashboard_service import DashboardService
 from mediflow.services.lab_service import LabTestInput
 from mediflow.services.patient_service import PatientRegistration
-from mediflow.services.report_service import REPORTS, export_excel
 from mediflow.services.pharmacy_service import MedicationInput
-from mediflow.data.base import local_now, local_today
+from mediflow.services.report_service import REPORTS, export_excel
 from mediflow.services.user_service import UserInput
 
 log = get_logger("web")
@@ -150,8 +150,8 @@ def _parse_datetime_local(raw: str | None) -> datetime:
         raise ValidationError("زمان نوبت را وارد کنید.", field="scheduled_start")
     try:
         return datetime.fromisoformat(raw)
-    except ValueError:
-        raise ValidationError("زمان نوبت نامعتبر است.", field="scheduled_start")
+    except ValueError as err:
+        raise ValidationError("زمان نوبت نامعتبر است.", field="scheduled_start") from err
 
 
 def _clean(form, key: str) -> str | None:
@@ -165,8 +165,8 @@ def _parse_date(raw: str | None) -> date | None:
         return None
     try:
         return date.fromisoformat(raw)
-    except ValueError:
-        raise ValidationError("تاریخ تولد نامعتبر است.", field="date_of_birth")
+    except ValueError as err:
+        raise ValidationError("تاریخ تولد نامعتبر است.", field="date_of_birth") from err
 
 
 def _parse_int(raw: str | None) -> int | None:
@@ -174,8 +174,8 @@ def _parse_int(raw: str | None) -> int | None:
         return None
     try:
         return int(raw)
-    except ValueError:
-        raise ValidationError("سن نامعتبر است.", field="approximate_age_years")
+    except ValueError as err:
+        raise ValidationError("سن نامعتبر است.", field="approximate_age_years") from err
 
 
 def _registration_from(form) -> PatientRegistration:

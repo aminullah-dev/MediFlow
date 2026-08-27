@@ -18,8 +18,8 @@ from PySide6.QtWidgets import (
 )
 
 from mediflow.services.audit_service import AuditEntryDTO, LoginEntryDTO
-from mediflow.ui.dialogs.audit_detail_dialog import AuditDetailDialog
 from mediflow.ui import icons
+from mediflow.ui.dialogs.audit_detail_dialog import AuditDetailDialog
 from mediflow.ui.views.base_view import BaseView
 
 

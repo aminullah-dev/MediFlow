@@ -76,6 +76,15 @@ select = [
     "LOG", "G",        # logging correctness; the audit trail depends on it
     "FA",              # future annotations
     "DTZ",             # tz-naive datetime — payroll periods and Solar Hijri dates
+    "I",               # import sorting
+    "UP",              # outdated syntax
+    "RUF",             # ruff-specific
+    "B",               # bugbear
+    "W",               # pycodestyle warnings
+    "FURB",            # modernisation
+    "ERA",             # commented-out code
+    "T20",             # stray print()
+    "N",               # naming conventions
 ]
 
 # Deliberately NOT enabled yet. These are real findings, not noise — the count
@@ -83,19 +92,9 @@ select = [
 # today. Turn them on one family at a time, fix, and move the line up into
 # `select` above — DTZ was cleared this way.
 #
-#   I    26  unsorted imports        — all auto-fixable (`ruff check --fix`)
-#   UP   61  outdated syntax         — nearly all auto-fixable
-#   RUF  35  ruff-specific           — mostly auto-fixable
-#   BLE   5  blind `except:`
-#   B     3  bugbear
 #   SIM   5  simplifiable code
-#   N     4  naming conventions
-#   ERA   4  commented-out code
-#   T20   3  stray print()
 #   A     2  builtin shadowing
-#   FURB  2  modernisation
 #   C90   2  complexity
-#   W     1  whitespace
 #   SLF   1  private-member access
 #   PTH   8  os.path -> pathlib
 #   ARG  13  unused arguments
@@ -104,9 +103,43 @@ select = [
 #   TRY  94  exception style
 #   EM   94  exception message literals
 
+ignore = [
+    # This application's UI strings are Dari and Pashto. RUF001/RUF002 exist to
+    # catch homoglyph attacks in ASCII source; here they fire on every Arabic
+    # letter — "String contains ambiguous ا (ARABIC LETTER ALEF). Did you mean
+    # l?" — including inside core/keyboard.py, the Persian keyboard-layout
+    # module. Acting on them would corrupt the translations.
+    "RUF001",
+    "RUF002",
+    # ERA001 flags the header comments that document tuple shapes, e.g.
+    # "# (name, code, sample_type, reference_range, unit)" above a table of
+    # seed rows. That is documentation, not dead code.
+    "ERA001",
+    # UP042 rewrites `class X(str, Enum)` to `StrEnum`. Ruff marks the fix
+    # unsafe, and it is: str() of a member changes, which is exactly the sort
+    # of value that reaches a database column or a printed report. Worth doing
+    # deliberately, with the enum call sites reviewed — not as a lint sweep.
+    "UP042",
+]
+
 [tool.ruff.lint.per-file-ignores]
 # Tests may use assert and fixture-style shadowing freely.
 "tests/**" = ["S101", "ARG001", "ARG002"]
+# Qt calls this override by name; renaming it silently stops event filtering.
+"mediflow/ui/dialogs/login_dialog.py" = ["N802"]
+# ctypes structures deliberately mirror the Win32 names they map onto.
+"mediflow/core/windows_identity.py" = ["N801"]
+# Console entry points: print() is the output, not a stray debug statement.
+"mediflow/app.py" = ["T201"]
+"mediflow/web/__main__.py" = ["T201"]
+# Base is re-exported only after the loop above has imported every model
+# module, so SQLAlchemy sees a fully populated registry. The order is the
+# point; moving the import to the top would defeat it.
+"mediflow/data/models/__init__.py" = ["E402"]
+# _PASSWORD_EXEMPT is a constant that happens to live inside create_app().
+# Lower-casing it would suggest it is mutable, and this particular set decides
+# what a user holding a temporary password may still reach.
+"mediflow/web/server.py" = ["N806"]
 
 [tool.black]
 line-length = 100

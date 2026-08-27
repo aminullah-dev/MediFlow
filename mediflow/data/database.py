@@ -15,8 +15,8 @@ Design notes
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Iterator
 from contextvars import ContextVar
-from typing import Iterator
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
@@ -99,9 +99,9 @@ def _register_audit_listeners(session_factory: sessionmaker) -> None:
     from mediflow.data.audit import capture_changes, emit_audit_rows
 
     @event.listens_for(session_factory, "before_flush")
-    def _before_flush(session: Session, _flush_context, _instances):  # noqa: ANN001
+    def _before_flush(session: Session, _flush_context, _instances):
         capture_changes(session, current_user_id.get())
 
     @event.listens_for(session_factory, "after_flush")
-    def _after_flush(session: Session, _flush_context):  # noqa: ANN001
+    def _after_flush(session: Session, _flush_context):
         emit_audit_rows(session)

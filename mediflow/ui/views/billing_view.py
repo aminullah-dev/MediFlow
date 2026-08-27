@@ -18,10 +18,10 @@ from PySide6.QtWidgets import (
 
 from mediflow.core.constants import InvoiceStatus
 from mediflow.services.billing_service import InvoiceDTO
+from mediflow.ui import icons, widgets
 from mediflow.ui.dialogs.invoice_detail_dialog import InvoiceDetailDialog
 from mediflow.ui.dialogs.invoice_dialog import InvoiceDialog
 from mediflow.ui.dialogs.payment_dialog import PaymentDialog
-from mediflow.ui import icons, widgets
 from mediflow.ui.views.base_view import BaseView
 
 _STATUS_LABELS = {

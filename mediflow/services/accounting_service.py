@@ -14,8 +14,8 @@ from mediflow.core.exceptions import (
 )
 from mediflow.core.logging_config import get_logger
 from mediflow.data.database import Database
-from mediflow.services.authz import require
 from mediflow.data.models.accounting import Account, JournalEntry, JournalLine
+from mediflow.services.authz import require
 
 log = get_logger("services.accounting")
 

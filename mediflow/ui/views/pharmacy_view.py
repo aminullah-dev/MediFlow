@@ -17,9 +17,9 @@ from PySide6.QtWidgets import (
 )
 
 from mediflow.services.pharmacy_service import MedicationDTO
+from mediflow.ui import icons, widgets
 from mediflow.ui.dialogs.medication_dialog import MedicationDialog
 from mediflow.ui.dialogs.stock_dialog import DispenseDialog, StockDialog
-from mediflow.ui import icons, widgets
 from mediflow.ui.views.base_view import BaseView
 
 

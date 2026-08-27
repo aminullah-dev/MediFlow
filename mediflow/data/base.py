@@ -7,7 +7,7 @@ surrogate primary key from :class:`Base`.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -38,7 +38,7 @@ def utcnow() -> datetime:
     Stored naive (tz-free) for stable SQLite comparisons, but derived from a
     timezone-aware ``now`` to avoid the deprecated ``datetime.utcnow()``.
     """
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 # -- local-day bucketing ----------------------------------------------------
@@ -96,4 +96,4 @@ def local_month_start_utc() -> datetime:
     today = local_today()
     # Naive on purpose: this is the wall-clock domain described above, and the
     # offset is subtracted straight after to land in the naive-UTC domain.
-    return datetime(today.year, today.month, 1) - _local_utc_offset()  # noqa: DTZ001
+    return datetime(today.year, today.month, 1) - _local_utc_offset()  # noqa: DTZ001  (wall-clock domain — see mediflow/data/base.py)

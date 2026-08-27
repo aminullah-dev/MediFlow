@@ -18,10 +18,10 @@ from PySide6.QtWidgets import (
 )
 
 from mediflow.services.hr_service import EmployeeDTO
+from mediflow.ui import icons
 from mediflow.ui.dialogs.attendance_dialog import AttendanceDialog
 from mediflow.ui.dialogs.employee_dialog import EmployeeDialog
 from mediflow.ui.dialogs.payroll_dialog import PayrollDialog
-from mediflow.ui import icons
 from mediflow.ui.views.base_view import BaseView
 
 

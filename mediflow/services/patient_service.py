@@ -8,11 +8,11 @@ from mediflow.core.constants import BloodGroup, Gender
 from mediflow.core.exceptions import ValidationError
 from mediflow.core.logging_config import get_logger
 from mediflow.core.security import FieldCipher
+from mediflow.data.base import local_today
 from mediflow.data.database import Database
 from mediflow.data.models.patient import Patient
 from mediflow.data.repositories.patient_repository import PatientRepository
 from mediflow.services.authz import require
-from mediflow.data.base import local_today
 
 log = get_logger("services.patient")
 

@@ -16,10 +16,10 @@ from PySide6.QtWidgets import (
 
 from mediflow.core.constants import LabRequestStatus
 from mediflow.services.lab_service import LabRequestDTO
+from mediflow.ui import icons, widgets
 from mediflow.ui.dialogs.lab_request_dialog import LabRequestDialog
 from mediflow.ui.dialogs.lab_result_dialog import LabResultDialog
 from mediflow.ui.dialogs.lab_tests_dialog import LabTestsDialog
-from mediflow.ui import icons, widgets
 from mediflow.ui.views.base_view import BaseView
 
 _STATUS_LABELS = {

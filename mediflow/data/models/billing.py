@@ -32,10 +32,10 @@ class Invoice(Base, AuditMixin):
     notes: Mapped[str | None] = mapped_column(Text)
 
     patient: Mapped[Patient] = relationship()
-    lines: Mapped[list["InvoiceLine"]] = relationship(
+    lines: Mapped[list[InvoiceLine]] = relationship(
         back_populates="invoice", cascade="all, delete-orphan"
     )
-    payments: Mapped[list["Payment"]] = relationship(
+    payments: Mapped[list[Payment]] = relationship(
         back_populates="invoice", cascade="all, delete-orphan"
     )
 

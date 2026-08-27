@@ -11,7 +11,6 @@ real clinic database.
 """
 from __future__ import annotations
 
-
 import pytest
 
 from mediflow.core.config import Config
@@ -19,10 +18,10 @@ from mediflow.core.security import hash_password
 from mediflow.data.models.user import User
 
 pytest.importorskip("fastapi", reason="web extras not installed")
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient
 
-from mediflow.web.server import create_app  # noqa: E402
 from mediflow.data.base import local_now, local_today
+from mediflow.web.server import create_app
 
 PASSWORD = "Amin2026"
 

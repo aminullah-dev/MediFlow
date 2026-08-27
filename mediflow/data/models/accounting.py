@@ -26,7 +26,7 @@ class Account(Base, AuditMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     description: Mapped[str | None] = mapped_column(String(255))
 
-    lines: Mapped[list["JournalLine"]] = relationship(back_populates="account")
+    lines: Mapped[list[JournalLine]] = relationship(back_populates="account")
 
 
 class JournalEntry(Base, AuditMixin):
@@ -36,7 +36,7 @@ class JournalEntry(Base, AuditMixin):
     description: Mapped[str] = mapped_column(String(200), nullable=False)
     reference: Mapped[str | None] = mapped_column(String(60))
 
-    lines: Mapped[list["JournalLine"]] = relationship(
+    lines: Mapped[list[JournalLine]] = relationship(
         back_populates="entry", cascade="all, delete-orphan"
     )
 

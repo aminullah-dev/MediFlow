@@ -15,10 +15,10 @@ from PySide6.QtWidgets import (
 )
 
 from mediflow.services.accounting_service import EntryDTO
+from mediflow.ui import icons
 from mediflow.ui.dialogs.accounts_dialog import AccountsDialog
 from mediflow.ui.dialogs.entry_detail_dialog import EntryDetailDialog
 from mediflow.ui.dialogs.journal_entry_dialog import JournalEntryDialog
-from mediflow.ui import icons
 from mediflow.ui.views.base_view import BaseView
 
 

@@ -1,6 +1,8 @@
 """Dashboard: at-a-glance daily statistics."""
 from __future__ import annotations
 
+from typing import ClassVar
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout
 
@@ -42,7 +44,7 @@ class DashboardView(BaseView):
     required_permission = "dashboard.view"
 
     # (stats attribute, caption source string, icon name)
-    _SPECS = [
+    _SPECS: ClassVar[list[tuple[str, str, str]]] = [
         ("total_patients", "Total patients", "patients"),
         ("patients_today", "Registered today", "user-plus"),
         ("appointments_today", "Appointments today", "appointments"),

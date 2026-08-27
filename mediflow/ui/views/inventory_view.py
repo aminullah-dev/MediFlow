@@ -17,9 +17,9 @@ from PySide6.QtWidgets import (
 )
 
 from mediflow.services.inventory_service import InventoryItemDTO
+from mediflow.ui import icons, widgets
 from mediflow.ui.dialogs.inventory_item_dialog import InventoryItemDialog
 from mediflow.ui.dialogs.movement_dialog import MovementDialog
-from mediflow.ui import icons, widgets
 from mediflow.ui.views.base_view import BaseView
 
 

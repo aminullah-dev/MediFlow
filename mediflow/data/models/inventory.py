@@ -28,7 +28,7 @@ class InventoryItem(Base, AuditMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
 
-    movements: Mapped[list["StockMovement"]] = relationship(
+    movements: Mapped[list[StockMovement]] = relationship(
         back_populates="item", cascade="all, delete-orphan"
     )
 

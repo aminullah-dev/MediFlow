@@ -8,10 +8,10 @@ from sqlalchemy import select
 
 from mediflow.core.exceptions import BusinessRuleError, ValidationError
 from mediflow.core.logging_config import get_logger
+from mediflow.data.base import local_today
 from mediflow.data.database import Database
 from mediflow.data.models.pharmacy import Medication, StockBatch
 from mediflow.services.authz import require
-from mediflow.data.base import local_today
 
 log = get_logger("services.pharmacy")
 
