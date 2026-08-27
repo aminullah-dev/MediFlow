@@ -1,4 +1,4 @@
-# Python
+# ─── Python ──────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -10,26 +10,78 @@ dist_installer/
 .uv-python/
 venv/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-# MediFlow runtime data (never commit real clinic data)
+# ─── MediFlow runtime data — never commit real clinic data ───────────────
+# The whole runtime folder, whatever it is called. This is the important
+# one: it holds the database, the encryption keys, patient documents and
+# patient photos. Ignoring the directory outright is safer than trying to
+# name every file type that can appear inside it.
+live_data/
+data_store/
+instance/
+
+# Belt and braces — these must never be committed from anywhere in the tree.
+# (Note: no leading slash, so they apply at every depth, not just the root.)
 *.db
 *.db-shm
 *.db-wal
-/data_store/
-/backups/
-/logs/
-*.log
+*.sqlite
+*.sqlite3
+*.hmac
 .secret_key
 .session_key
+*.key
+*.pem
+.env
+.env.*
+!.env.example
 
-# Qt compiled translations. The shipped .qm files ARE committed so a fresh
-# clone runs in Dari/Pashto without needing pyside6-lrelease; regenerate them
-# after editing a .ts:  pyside6-lrelease <name>.ts -qm <name>.qm
+# Backups, logs and exports at any depth
+backups/
+logs/
+*.log
+*.log.*
+exports/
+
+# Patient-identifying media, wherever it lands
+documents/
+photos/
+uploads/
+
+# ─── Signing material and archives ───────────────────────────────────────
+# A leaked keystore cannot be undone: you can never ship an update again.
+*.jks
+*.keystore
+*.p12
+*.pfx
+key.properties
+
+# Working-folder snapshots. A zip of the project is not a release artifact —
+# build the installer from packaging/ instead.
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.rar
+
+# ─── Qt translations ─────────────────────────────────────────────────────
+# The shipped .qm files ARE committed so a fresh clone runs in Dari/Pashto
+# without needing pyside6-lrelease. Regenerate after editing a .ts:
+#   pyside6-lrelease <name>.ts -qm <name>.qm
 *.qm
 !mediflow/i18n/translations/*.qm
 
-# OS / IDE
+# ─── OS / IDE / tooling ──────────────────────────────────────────────────
 .DS_Store
+__MACOSX/
+Thumbs.db
+desktop.ini
 .idea/
 .vscode/
 *.swp
+*~
+.claude/
