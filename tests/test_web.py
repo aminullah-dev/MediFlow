@@ -11,7 +11,6 @@ real clinic database.
 """
 from __future__ import annotations
 
-from datetime import datetime
 
 import pytest
 
@@ -23,6 +22,7 @@ pytest.importorskip("fastapi", reason="web extras not installed")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from mediflow.web.server import create_app  # noqa: E402
+from mediflow.data.base import local_now, local_today
 
 PASSWORD = "Amin2026"
 
@@ -128,7 +128,7 @@ def test_patient_can_be_updated_and_deleted(client):
 
 # -- appointments and reception ---------------------------------------------
 def _book(client, pid, hour=10):
-    when = datetime.now().replace(hour=hour, minute=0, second=0, microsecond=0)
+    when = local_now().replace(hour=hour, minute=0, second=0, microsecond=0)
     r = client.post("/appointments/new",
                     data={"patient_id": str(pid),
                           "scheduled_start": when.strftime("%Y-%m-%dT%H:%M"),
@@ -172,7 +172,7 @@ def test_appointment_can_be_cancelled(client):
 
 
 def test_booking_without_a_patient_is_refused_in_dari(client):
-    when = datetime.now().strftime("%Y-%m-%dT%H:%M")
+    when = local_now().strftime("%Y-%m-%dT%H:%M")
     r = client.post("/appointments/new", data={"patient_id": "", "scheduled_start": when})
     assert r.status_code == 400
     assert "بیمار را انتخاب کنید." in r.text
@@ -343,11 +343,11 @@ def test_medication_can_be_created_and_searched(client):
 
 
 def test_stock_is_tracked_as_dated_batches(client):
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     mid = _new_medication(client)
-    soon = (date.today() + timedelta(days=20)).isoformat()
-    later = (date.today() + timedelta(days=400)).isoformat()
+    soon = (local_today() + timedelta(days=20)).isoformat()
+    later = (local_today() + timedelta(days=400)).isoformat()
     client.post(f"/pharmacy/{mid}/stock",
                 data={"quantity": "30", "batch_number": "B-LATER", "expiry_date": later})
     client.post(f"/pharmacy/{mid}/stock",
@@ -361,11 +361,11 @@ def test_stock_is_tracked_as_dated_batches(client):
 def test_dispensing_consumes_the_nearest_expiry_batch_first(client):
     """FEFO. Draining the newest batch first would leave stock to expire in
     the store — the whole point of tracking expiry per batch."""
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     mid = _new_medication(client)
-    soon = (date.today() + timedelta(days=20)).isoformat()
-    later = (date.today() + timedelta(days=400)).isoformat()
+    soon = (local_today() + timedelta(days=20)).isoformat()
+    later = (local_today() + timedelta(days=400)).isoformat()
     client.post(f"/pharmacy/{mid}/stock", data={"quantity": "30", "expiry_date": later})
     client.post(f"/pharmacy/{mid}/stock", data={"quantity": "10", "expiry_date": soon})
 

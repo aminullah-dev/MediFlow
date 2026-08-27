@@ -75,16 +75,14 @@ select = [
     "INT",             # gettext — this app is trilingual
     "LOG", "G",        # logging correctness; the audit trail depends on it
     "FA",              # future annotations
+    "DTZ",             # tz-naive datetime — payroll periods and Solar Hijri dates
 ]
 
 # Deliberately NOT enabled yet. These are real findings, not noise — the count
 # after each name is what `ruff check mediflow tests --select <rule>` reports
 # today. Turn them on one family at a time, fix, and move the line up into
-# `select` above.
+# `select` above — DTZ was cleared this way.
 #
-#   DTZ  32  tz-naive datetime. The highest-value one here: this app computes
-#            payroll periods and Solar Hijri dates, where a naive datetime is
-#            a correctness bug waiting to happen, not a style preference.
 #   I    26  unsorted imports        — all auto-fixable (`ruff check --fix`)
 #   UP   61  outdated syntax         — nearly all auto-fixable
 #   RUF  35  ruff-specific           — mostly auto-fixable

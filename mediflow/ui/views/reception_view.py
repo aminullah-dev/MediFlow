@@ -1,7 +1,7 @@
 """Reception module: the live daily patient queue and check-in flow."""
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -20,6 +20,7 @@ from mediflow.core.constants import AppointmentStatus
 from mediflow.services.appointment_service import AppointmentDTO
 from mediflow.ui import icons
 from mediflow.ui.views.base_view import BaseView
+from mediflow.data.base import local_today
 
 _STATUS_LABELS = {
     AppointmentStatus.BOOKED.value: "Booked",
@@ -118,7 +119,7 @@ class ReceptionView(BaseView):
         self._reload()
 
     def _reload(self) -> None:
-        today = datetime.combine(date.today(), datetime.min.time())
+        today = datetime.combine(local_today(), datetime.min.time())
         allrows = self._service.list_for_day(today)
         # Show everything except cancelled; active first, then by time.
         order = {AppointmentStatus.IN_CONSULTATION.value: 0,

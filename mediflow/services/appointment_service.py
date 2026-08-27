@@ -151,8 +151,8 @@ class AppointmentService:
 
     # -- queries ------------------------------------------------------------
     def list_for_day(self, day: datetime) -> list[AppointmentDTO]:
-        day_start = datetime(day.year, day.month, day.day)
-        day_end = datetime(day.year, day.month, day.day, 23, 59, 59)
+        day_start = datetime(day.year, day.month, day.day)  # noqa: DTZ001  (wall-clock domain — see mediflow/data/base.py)
+        day_end = datetime(day.year, day.month, day.day, 23, 59, 59)  # noqa: DTZ001  (wall-clock domain — see mediflow/data/base.py)
         with self._db.unit_of_work() as session:
             repo = AppointmentRepository(session)
             rows = repo.for_day(day_start, day_end)

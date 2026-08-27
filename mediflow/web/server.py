@@ -58,6 +58,7 @@ from mediflow.services.lab_service import LabTestInput
 from mediflow.services.patient_service import PatientRegistration
 from mediflow.services.report_service import REPORTS, export_excel
 from mediflow.services.pharmacy_service import MedicationInput
+from mediflow.data.base import local_now, local_today
 from mediflow.services.user_service import UserInput
 
 log = get_logger("web")
@@ -131,11 +132,11 @@ def _parse_day(raw: str | None) -> datetime:
     if raw:
         try:
             d = date.fromisoformat(raw)
-            return datetime(d.year, d.month, d.day)
+            return datetime(d.year, d.month, d.day)  # noqa: DTZ001  (wall-clock domain — see mediflow/data/base.py)
         except ValueError:
             pass
-    now = datetime.now()
-    return datetime(now.year, now.month, now.day)
+    now = local_now()
+    return datetime(now.year, now.month, now.day)  # noqa: DTZ001  (wall-clock domain — see mediflow/data/base.py)
 
 
 def _parse_datetime_local(raw: str | None) -> datetime:
@@ -1080,7 +1081,7 @@ def create_app(config: Config | None = None) -> FastAPI:
         return TEMPLATES.TemplateResponse(request, "journal_form.html", {
             "user": user, "error": None, "form": None,
             "accounts": container.accounting.list_accounts(),
-            "today": date.today().isoformat(),
+            "today": local_today().isoformat(),
         })
 
     @app.post("/accounting/journal/new", response_class=HTMLResponse)
@@ -1093,7 +1094,7 @@ def create_app(config: Config | None = None) -> FastAPI:
         form = await request.form()
         try:
             entry_id = container.accounting.create_entry(EntryInput(
-                entry_date=_parse_date(_clean(form, "entry_date")) or date.today(),
+                entry_date=_parse_date(_clean(form, "entry_date")) or local_today(),
                 description=(form.get("description") or "").strip(),
                 reference=_clean(form, "reference"),
                 lines=_journal_lines_from(form),
@@ -1102,7 +1103,7 @@ def create_app(config: Config | None = None) -> FastAPI:
             return TEMPLATES.TemplateResponse(request, "journal_form.html", {
                 "user": user, "error": _fa_error(exc), "form": form,
                 "accounts": container.accounting.list_accounts(),
-                "today": date.today().isoformat(),
+                "today": local_today().isoformat(),
             }, status_code=400)
         return RedirectResponse(f"/accounting/journal/{entry_id}", status_code=303)
 

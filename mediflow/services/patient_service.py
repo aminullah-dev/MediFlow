@@ -12,6 +12,7 @@ from mediflow.data.database import Database
 from mediflow.data.models.patient import Patient
 from mediflow.data.repositories.patient_repository import PatientRepository
 from mediflow.services.authz import require
+from mediflow.data.base import local_today
 
 log = get_logger("services.patient")
 
@@ -60,7 +61,7 @@ class PatientDTO:
     @property
     def age_years(self) -> int | None:
         if self.date_of_birth is not None:
-            today = date.today()
+            today = local_today()
             years = today.year - self.date_of_birth.year - (
                 (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
             )
@@ -79,7 +80,7 @@ class PatientService:
         self._validate(data)
         with self._db.unit_of_work() as session:
             repo = PatientRepository(session)
-            year = date.today().year  # MRN year follows the local calendar
+            year = local_today().year  # MRN year follows the local calendar
             sequence = repo.next_mrn_sequence(year)
             mrn = f"P-{year}-{sequence:06d}"
 

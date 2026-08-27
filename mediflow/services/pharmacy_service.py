@@ -11,6 +11,7 @@ from mediflow.core.logging_config import get_logger
 from mediflow.data.database import Database
 from mediflow.data.models.pharmacy import Medication, StockBatch
 from mediflow.services.authz import require
+from mediflow.data.base import local_today
 
 log = get_logger("services.pharmacy")
 
@@ -57,7 +58,7 @@ class MedicationDTO:
     def is_expiring(self) -> bool:
         if self.earliest_expiry is None:
             return False
-        return self.earliest_expiry <= date.today() + timedelta(days=EXPIRY_WARNING_DAYS)
+        return self.earliest_expiry <= local_today() + timedelta(days=EXPIRY_WARNING_DAYS)
 
 
 class PharmacyService:
@@ -130,7 +131,7 @@ class PharmacyService:
                 quantity=quantity,
                 expiry_date=expiry_date,
                 cost_price=cost_price,
-                received_on=date.today(),  # local calendar date, matching expiry_date
+                received_on=local_today(),  # local calendar date, matching expiry_date
             )
             session.add(batch)
             log.info("Added %s units to medication id=%s", quantity, medication_id)
