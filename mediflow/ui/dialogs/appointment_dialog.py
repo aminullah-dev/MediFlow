@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 from mediflow.core.exceptions import MediFlowError
 from mediflow.services.appointment_service import AppointmentBooking, AppointmentService
 from mediflow.services.patient_service import PatientDTO, PatientService
+from mediflow.data.base import local_today
 
 
 class AppointmentDialog(QDialog):
@@ -37,7 +38,7 @@ class AppointmentDialog(QDialog):
         self._selected: PatientDTO | None = None
         self.setModal(True)
         self.setMinimumWidth(560)
-        self._build_ui(default_date or date.today())
+        self._build_ui(default_date or local_today())
 
     def _build_ui(self, default_date: date) -> None:
         outer = QVBoxLayout(self)
@@ -138,7 +139,7 @@ class AppointmentDialog(QDialog):
             return
         qd = self._date.date()
         qt = self._time.time()
-        start = datetime(qd.year(), qd.month(), qd.day(), qt.hour(), qt.minute())
+        start = datetime(qd.year(), qd.month(), qd.day(), qt.hour(), qt.minute())  # noqa: DTZ001  (wall-clock domain — see mediflow/data/base.py)
         booking = AppointmentBooking(
             patient_id=self._selected.id,
             scheduled_start=start,

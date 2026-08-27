@@ -22,6 +22,7 @@ from mediflow.services.appointment_service import AppointmentDTO
 from mediflow.ui.dialogs.appointment_dialog import AppointmentDialog
 from mediflow.ui import icons, widgets
 from mediflow.ui.views.base_view import BaseView
+from mediflow.data.base import local_today
 
 _STATUS_LABELS = {
     AppointmentStatus.BOOKED.value: "Booked",
@@ -39,7 +40,7 @@ class AppointmentsView(BaseView):
 
     def build_ui(self) -> None:
         self._service = self.container.appointments
-        self._date = date.today()
+        self._date = local_today()
         self._rows: list[AppointmentDTO] = []
 
         header = QVBoxLayout()
@@ -120,7 +121,7 @@ class AppointmentsView(BaseView):
 
     def _reload(self) -> None:
         from datetime import datetime
-        day = datetime(self._date.year, self._date.month, self._date.day)
+        day = datetime(self._date.year, self._date.month, self._date.day)  # noqa: DTZ001  (wall-clock domain — see mediflow/data/base.py)
         self._rows = self._service.list_for_day(day)
         self._table.setRowCount(len(self._rows))
         for r, a in enumerate(self._rows):
@@ -163,7 +164,7 @@ class AppointmentsView(BaseView):
         self._set_date(self._date + timedelta(days=days))
 
     def _go_today(self) -> None:
-        self._set_date(date.today())
+        self._set_date(local_today())
 
     def _set_date(self, new_date: date) -> None:
         self._date = new_date

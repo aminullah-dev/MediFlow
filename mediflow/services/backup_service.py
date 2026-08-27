@@ -14,7 +14,7 @@ from __future__ import annotations
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from mediflow.core.exceptions import BackupError
@@ -82,7 +82,7 @@ class BackupService:
             stat = path.stat()
             rows.append(BackupDTO(
                 name=path.name, path=str(path), size_bytes=stat.st_size,
-                modified=datetime.fromtimestamp(stat.st_mtime),
+                modified=datetime.fromtimestamp(stat.st_mtime, tz=UTC).astimezone(),
             ))
         rows.sort(key=lambda b: b.modified, reverse=True)
         return rows

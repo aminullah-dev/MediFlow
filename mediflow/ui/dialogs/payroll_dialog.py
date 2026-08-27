@@ -18,11 +18,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from datetime import date
 
 from mediflow.core.constants import PayslipStatus
 from mediflow.core.exceptions import MediFlowError
 from mediflow.services.hr_service import EmployeeDTO, HRService, PayslipDTO
+from mediflow.data.base import local_today
 
 _STATUS_LABELS = {PayslipStatus.PENDING.value: "Pending", PayslipStatus.PAID.value: "Paid"}
 
@@ -55,7 +55,7 @@ class PayrollDialog(QDialog):
         root.addWidget(QLabel(f"{self.tr('Payroll')} · {self._employee.full_name}",
                               objectName="PageTitle"))
 
-        now = date.today()  # payroll period defaults follow the local calendar
+        now = local_today()  # payroll period defaults follow the local calendar
         entry = QHBoxLayout()
         entry.setSpacing(8)
         self._year = QSpinBox()

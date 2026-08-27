@@ -6,7 +6,7 @@ detail table) which the UI renders and can export to Excel.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import func, select
@@ -17,7 +17,7 @@ from mediflow.core.constants import (
     InvoiceStatus,
     LabRequestStatus,
 )
-from mediflow.data.base import local_day_bounds_utc, local_month_start_utc, utcnow
+from mediflow.data.base import local_day_bounds_utc, local_month_start_utc, local_today, utcnow
 from mediflow.data.database import Database
 from mediflow.data.models.appointment import Appointment
 from mediflow.data.models.billing import Invoice
@@ -84,8 +84,8 @@ class ReportService:
 
     def _appointments(self) -> ReportResult:
         # scheduled_start is local wall-clock; the local month needs no shift.
-        today = date.today()
-        month_start = datetime(today.year, today.month, 1)
+        today = local_today()
+        month_start = datetime(today.year, today.month, 1)  # noqa: DTZ001  (wall-clock domain — see mediflow/data/base.py)
         with self._db.unit_of_work() as session:
             def count(*where) -> int:
                 stmt = select(func.count()).select_from(Appointment).where(
@@ -135,7 +135,7 @@ class ReportService:
                 select(Medication).where(Medication.is_deleted.is_(False))
             ).scalars().all()
             low_rows, low, out, expiring = [], 0, 0, 0
-            today = date.today()  # expiry dates are local calendar dates
+            today = local_today()  # expiry dates are local calendar dates
             for m in meds:
                 live = [b for b in m.batches if not b.is_deleted and b.quantity > 0]
                 stock = sum(b.quantity for b in live)
