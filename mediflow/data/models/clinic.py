@@ -34,7 +34,7 @@ class Department(Base, AuditMixin):
     description: Mapped[str | None] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    services: Mapped[list["Service"]] = relationship(back_populates="department")
+    services: Mapped[list[Service]] = relationship(back_populates="department")
 
 
 class Service(Base, AuditMixin):
@@ -52,7 +52,7 @@ class Service(Base, AuditMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     department: Mapped[Department | None] = relationship(back_populates="services")
-    tax: Mapped["Tax | None"] = relationship()
+    tax: Mapped[Tax | None] = relationship()
 
 
 class Tax(Base, AuditMixin):

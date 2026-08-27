@@ -18,9 +18,9 @@ from PySide6.QtWidgets import (
 
 from mediflow.core.exceptions import MediFlowError
 from mediflow.services.user_service import UserDTO
+from mediflow.ui import icons, widgets
 from mediflow.ui.dialogs.roles_dialog import RolesDialog
 from mediflow.ui.dialogs.user_dialog import UserDialog
-from mediflow.ui import icons, widgets
 from mediflow.ui.views.base_view import BaseView
 
 

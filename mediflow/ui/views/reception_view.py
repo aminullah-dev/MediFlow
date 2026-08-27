@@ -17,10 +17,10 @@ from PySide6.QtWidgets import (
 )
 
 from mediflow.core.constants import AppointmentStatus
+from mediflow.data.base import local_today
 from mediflow.services.appointment_service import AppointmentDTO
 from mediflow.ui import icons
 from mediflow.ui.views.base_view import BaseView
-from mediflow.data.base import local_today
 
 _STATUS_LABELS = {
     AppointmentStatus.BOOKED.value: "Booked",

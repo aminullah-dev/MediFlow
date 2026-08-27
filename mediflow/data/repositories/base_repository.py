@@ -10,7 +10,8 @@ owns the transaction boundary. This keeps multiple repository calls atomic.
 """
 from __future__ import annotations
 
-from typing import Generic, Iterable, Sequence, TypeVar
+from collections.abc import Iterable, Sequence
+from typing import Generic, TypeVar
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session

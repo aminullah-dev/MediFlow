@@ -199,8 +199,8 @@ def test_transparent_rehash_never_stores_the_persian_rendering(db, admin_passwor
     """Regression: a rehash after a recovered login must store the CORRECTED
     password. Storing the raw Persian input would lock the account out for good
     — the very bug this module exists to prevent."""
-    from mediflow.services import auth_service as auth_module
     from mediflow.core.security import hash_password, verify_password
+    from mediflow.services import auth_service as auth_module
 
     with db.unit_of_work() as session:
         user = UserRepository(session).get_by_username(DEFAULT_ADMIN_USERNAME)

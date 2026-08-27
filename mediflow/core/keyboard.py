@@ -92,7 +92,7 @@ def from_persian_layout(text: str) -> str:
     out = []
     for ch in text:
         mapped = _UNSHIFTED.get(ch) or _SHIFTED.get(ch) or _DIGITS.get(ch)
-        out.append(mapped if mapped else ch)
+        out.append(mapped or ch)
     return "".join(out)
 
 

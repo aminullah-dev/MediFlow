@@ -24,9 +24,9 @@ from PySide6.QtWidgets import (
 )
 
 from mediflow.core.exceptions import MediFlowError
+from mediflow.data.base import local_today
 from mediflow.services.appointment_service import AppointmentBooking, AppointmentService
 from mediflow.services.patient_service import PatientDTO, PatientService
-from mediflow.data.base import local_today
 
 
 class AppointmentDialog(QDialog):

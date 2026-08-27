@@ -55,7 +55,7 @@ class Paths:
     secret_key: Path     # encryption key for sensitive fields
 
     @classmethod
-    def resolve(cls, base: Path | None = None) -> "Paths":
+    def resolve(cls, base: Path | None = None) -> Paths:
         base = base or _base_data_dir()
         paths = cls(
             base=base,
@@ -86,7 +86,7 @@ class AppSettings:
     _path: Path | None = field(default=None, repr=False, compare=False)
 
     @classmethod
-    def load(cls, paths: Paths) -> "AppSettings":
+    def load(cls, paths: Paths) -> AppSettings:
         settings_file = paths.base / "settings.json"
         if settings_file.exists():
             try:
@@ -117,7 +117,7 @@ class Config:
     debug: bool = False
 
     @classmethod
-    def bootstrap(cls, base: Path | None = None, *, debug: bool = False) -> "Config":
+    def bootstrap(cls, base: Path | None = None, *, debug: bool = False) -> Config:
         paths = Paths.resolve(base)
         settings = AppSettings.load(paths)
         return cls(paths=paths, settings=settings, debug=debug)

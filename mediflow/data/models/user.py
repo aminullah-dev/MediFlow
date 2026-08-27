@@ -3,11 +3,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Table, Column, Integer
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from mediflow.data.base import Base, utcnow
-from mediflow.data.mixins import TimestampMixin, SoftDeleteMixin
+from mediflow.data.mixins import SoftDeleteMixin, TimestampMixin
 
 # Association tables for the many-to-many RBAC graph.
 role_permissions = Table(
@@ -33,7 +33,7 @@ class Permission(Base):
     module: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(String(200))
 
-    roles: Mapped[list["Role"]] = relationship(
+    roles: Mapped[list[Role]] = relationship(
         secondary=role_permissions, back_populates="permissions"
     )
 
@@ -48,7 +48,7 @@ class Role(Base, TimestampMixin, SoftDeleteMixin):
     permissions: Mapped[list[Permission]] = relationship(
         secondary=role_permissions, back_populates="roles", lazy="selectin"
     )
-    users: Mapped[list["User"]] = relationship(
+    users: Mapped[list[User]] = relationship(
         secondary=user_roles, back_populates="roles"
     )
 

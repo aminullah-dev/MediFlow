@@ -18,8 +18,8 @@ from PySide6.QtWidgets import (
 )
 
 from mediflow.services.patient_service import PatientDTO
-from mediflow.ui.dialogs.patient_dialog import PatientDialog
 from mediflow.ui import icons
+from mediflow.ui.dialogs.patient_dialog import PatientDialog
 from mediflow.ui.views.base_view import BaseView
 
 _GENDER_LABELS = {"male": "Male", "female": "Female", "other": "Other"}

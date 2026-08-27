@@ -28,7 +28,7 @@ class Medication(Base, AuditMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
 
-    batches: Mapped[list["StockBatch"]] = relationship(
+    batches: Mapped[list[StockBatch]] = relationship(
         back_populates="medication", cascade="all, delete-orphan"
     )
 

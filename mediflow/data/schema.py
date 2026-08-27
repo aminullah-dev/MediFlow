@@ -9,7 +9,7 @@ from __future__ import annotations
 from sqlalchemy import text
 
 from mediflow.data.database import Database
-from mediflow.data.models import Base  # noqa: F401 - triggers model registration
+from mediflow.data.models import Base
 
 
 def create_all(db: Database) -> None:

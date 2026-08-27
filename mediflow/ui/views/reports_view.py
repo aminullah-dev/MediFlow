@@ -108,7 +108,7 @@ class ReportsView(BaseView):
             item = QListWidgetItem(self.tr(title))
             item.setData(Qt.ItemDataRole.UserRole, key)
             self._list.addItem(item)
-        self._list.setCurrentRow(current if current >= 0 else 0)
+        self._list.setCurrentRow(max(current, 0))
         self._list.blockSignals(False)
 
     def _on_select(self, row: int) -> None:

@@ -36,10 +36,10 @@ class Employee(Base, AuditMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
 
-    attendance: Mapped[list["Attendance"]] = relationship(
+    attendance: Mapped[list[Attendance]] = relationship(
         back_populates="employee", cascade="all, delete-orphan"
     )
-    payslips: Mapped[list["Payslip"]] = relationship(
+    payslips: Mapped[list[Payslip]] = relationship(
         back_populates="employee", cascade="all, delete-orphan"
     )
 

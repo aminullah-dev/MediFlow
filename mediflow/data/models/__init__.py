@@ -25,6 +25,6 @@ _MODEL_MODULES = (
 for _name in _MODEL_MODULES:
     import_module(f"{__name__}.{_name}")
 
-from mediflow.data.base import Base  # noqa: E402  (re-export after model load)
+from mediflow.data.base import Base
 
 __all__ = ["Base"]
