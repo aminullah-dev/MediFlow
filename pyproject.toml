@@ -35,7 +35,7 @@ dev = [
     "pytest-qt>=4.4",
     "httpx2>=2.0",          # starlette TestClient transport
 
-    "ruff>=0.5",
+    "ruff==0.16.5",
     "black>=24.0",
     "mypy>=1.10",
 ]
