@@ -50,6 +50,66 @@ include = ["mediflow*"]
 line-length = 100
 target-version = "py311"
 
+[tool.ruff.lint]
+# Pin the rule set explicitly.
+#
+# Ruff's *default* selection is not a stable contract: it widens between
+# releases, and CI installs ruff unpinned. On 2026-07-24 a newer ruff started
+# enforcing rules this project had never opted into and the lint job went red
+# across six consecutive runs without a single line of code changing. Naming
+# the rules here means a ruff upgrade can no longer break the build on its own.
+#
+# Everything selected below currently passes with zero violations.
+select = [
+    "E4", "E7", "E9",  # pycodestyle: imports, statements, runtime errors
+    "F",               # pyflakes
+    "C4",              # flake8-comprehensions
+    "RET",             # flake8-return
+    "PIE",             # flake8-pie
+    "ISC",             # implicit string concatenation
+    "ICN",             # import conventions
+    "RSE",             # raise statements
+    "TID",             # tidy imports
+    "ASYNC",           # async correctness (the FastAPI web UI)
+    "EXE",             # shebang / executable-bit consistency
+    "INT",             # gettext — this app is trilingual
+    "LOG", "G",        # logging correctness; the audit trail depends on it
+    "FA",              # future annotations
+]
+
+# Deliberately NOT enabled yet. These are real findings, not noise — the count
+# after each name is what `ruff check mediflow tests --select <rule>` reports
+# today. Turn them on one family at a time, fix, and move the line up into
+# `select` above.
+#
+#   DTZ  32  tz-naive datetime. The highest-value one here: this app computes
+#            payroll periods and Solar Hijri dates, where a naive datetime is
+#            a correctness bug waiting to happen, not a style preference.
+#   I    26  unsorted imports        — all auto-fixable (`ruff check --fix`)
+#   UP   61  outdated syntax         — nearly all auto-fixable
+#   RUF  35  ruff-specific           — mostly auto-fixable
+#   BLE   5  blind `except:`
+#   B     3  bugbear
+#   SIM   5  simplifiable code
+#   N     4  naming conventions
+#   ERA   4  commented-out code
+#   T20   3  stray print()
+#   A     2  builtin shadowing
+#   FURB  2  modernisation
+#   C90   2  complexity
+#   W     1  whitespace
+#   SLF   1  private-member access
+#   PTH   8  os.path -> pathlib
+#   ARG  13  unused arguments
+#   S   204  bandit security; many are test-only asserts, needs triage
+#   PL  132  pylint
+#   TRY  94  exception style
+#   EM   94  exception message literals
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may use assert and fixture-style shadowing freely.
+"tests/**" = ["S101", "ARG001", "ARG002"]
+
 [tool.black]
 line-length = 100
 target-version = ["py311"]
