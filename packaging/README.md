@@ -59,7 +59,7 @@ bash packaging/build-macos.sh
 ```
 
 This: generates the `.icns` → ensures PyInstaller is installed → builds
-`dist/MediFlow.app` → signs it → packs `dist_installer/MediFlow-<version>.dmg`
+`dist/MediFlow.app` → signs it → packs `dist_installer/MediFlow-<version>-<arch>.dmg`
 with a drag-to-`/Applications` symlink.
 
 ### Prerequisites
@@ -78,7 +78,7 @@ with a drag-to-`/Applications` symlink.
 # 2. Standalone app  ->  dist/MediFlow.app   (one-dir, windowed)
 ./.venv-mac/bin/python -m PyInstaller packaging/mediflow.spec --noconfirm --clean
 
-# 3. Disk image  ->  dist_installer/MediFlow-0.2.0.dmg
+# 3. Disk image  ->  dist_installer/MediFlow-0.2.0-<arch>.dmg
 bash packaging/build-macos.sh        # steps 1-3 together; there is no separate one
 ```
 
@@ -158,12 +158,51 @@ xattr -dr com.apple.quarantine /Applications/MediFlow.app
 That is a development workaround, not a distribution method — asking a clinic to
 run `xattr` is asking them to disable the check that protects them.
 
-### Architecture
+### Architecture — pick this before you build, not after
 
-The build is single-architecture — whatever the build Mac is. PySide6 publishes
-no universal2 wheels, so an Apple Silicon build **will not launch on an Intel
-Mac**. Build on each machine, or ship arm64 only and make that explicit to the
-clinic.
+PySide6 publishes no universal2 wheel, so the build is single-architecture:
+whatever the build Mac is. The `.dmg` is named accordingly
+(`MediFlow-0.2.0-arm64.dmg`, `MediFlow-0.2.0-x86_64.dmg`) because the two are
+**not** interchangeable and handing a clinic the wrong one costs a site visit.
+
+Neither choice covers every Mac, and the usual advice — "build on Intel, Rosetta
+covers the rest" — has a catch that matters for this product specifically:
+
+| Build on | Runs on Intel | Runs on Apple Silicon |
+|---|---|---|
+| Apple Silicon (`arm64`) | no | yes, natively |
+| Intel (`x86_64`) | yes | only with **Rosetta 2** |
+
+Rosetta 2 is not preinstalled. macOS offers to install it the first time an
+Intel app runs — **by downloading it from Apple**. On a clinic Mac that has
+never been online, that prompt cannot be satisfied, and an `x86_64` build simply
+will not start. Offline is the product, so this is not a theoretical edge.
+
+So:
+
+- Know the clinic's hardware before building. `uname -m` on their machine
+  answers it.
+- Shipping `x86_64` to Apple Silicon sites is fine **only** if Rosetta is
+  installed during setup, while the Mac still has a connection:
+  ```bash
+  softwareupdate --install-rosetta --agree-to-license
+  ```
+- Building both is the safe answer for a mixed fleet. It needs one Mac of each
+  kind; an Apple Silicon Mac cannot produce a working `x86_64` PySide6 build,
+  because `pip` installs arm64 wheels there.
+
+### Minimum macOS version
+
+Not hardcoded. The spec reads it out of the Qt framework being bundled
+(`otool -l` on `QtCore`) and writes it into `LSMinimumSystemVersion`, because
+`pyproject.toml` pins only `PySide6>=6.7` and a fresh build machine installs
+whatever is current — 6.11 at the time of writing, which has already dropped
+macOS 11. A plist that understates the floor is worse than useless: macOS
+installs the app on the older Mac and Qt then fails to load at launch.
+
+`build-macos.sh` prints the resolved value at the end of the build, read back
+out of the finished bundle. That number, not this paragraph, is what the clinic
+needs to meet.
 
 ---
 

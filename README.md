@@ -17,7 +17,7 @@ and a CI job that runs the suite on the real OS.
 
 | | Windows 10/11 | macOS 11+ |
 |---|---|---|
-| Installer | `MediFlow-Setup-<v>.exe` (Inno Setup) | `MediFlow-<v>.dmg` (drag to Applications) |
+| Installer | `MediFlow-Setup-<v>.exe` (Inno Setup) | `MediFlow-<v>-<arch>.dmg` (drag to Applications) |
 | Build | `packaging\build.ps1` | `packaging/build-macos.sh` |
 | Web UI launchers | `start.bat` · `stop.bat` | `start.command` · `stop.command` |
 | Data folder | `%APPDATA%\MediFlow` | `~/Library/Application Support/MediFlow` |
@@ -25,10 +25,17 @@ and a CI job that runs the suite on the real OS.
 | Code signing | — | Developer ID + notarised, ticket stapled for offline launch |
 | Tested in CI | 3.11 · 3.12 · 3.13 | 3.11 · 3.13 |
 
-macOS builds are single-architecture — an Apple Silicon build does not run on an
-Intel Mac. Build on each, or ship arm64 and say so. Linux is *not* a target: the
-code runs there, but with no OS secret store the encryption key falls back to
-file permissions, and the app logs a warning saying exactly that.
+macOS builds are single-architecture — PySide6 has no universal2 wheel. An
+Apple Silicon build does not run on an Intel Mac, and an Intel build needs
+Rosetta 2 on Apple Silicon, which is a one-time **download** an offline clinic
+cannot make. Know the target hardware before building; see
+[packaging/README.md](packaging/README.md). The minimum macOS version is not
+hardcoded — it is read out of the Qt being bundled and printed at the end of
+the build.
+
+Linux is *not* a target: the code runs there, but with no OS secret store the
+encryption key falls back to file permissions, and the app logs a warning
+saying exactly that.
 
 ---
 

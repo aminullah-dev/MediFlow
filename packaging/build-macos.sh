@@ -20,8 +20,12 @@ PY="$ROOT/.venv-mac/bin/python"
 [ -x "$PY" ] || PY="$(command -v python3)"
 
 VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' mediflow/__init__.py)"
+# PySide6 publishes no universal2 wheel, so this build runs on one architecture
+# only. The name has to say which: two .dmg files of the same version are not
+# interchangeable, and handing a clinic the wrong one costs a site visit.
+ARCH="$(uname -m)"
 APP="dist/MediFlow.app"
-DMG="dist_installer/MediFlow-$VERSION.dmg"
+DMG="dist_installer/MediFlow-$VERSION-$ARCH.dmg"
 ENTITLEMENTS="packaging/entitlements.plist"
 
 # The Apple Developer team this product ships under. Not a secret: it is
@@ -52,6 +56,22 @@ if [ -n "$IDENTITY" ]; then
 else
     echo "==> No Developer ID for team $TEAM_ID in the keychain — ad-hoc build"
 fi
+
+# Report the shipped constraints from the artifact itself, not from what the
+# build intended. LSMinimumSystemVersion is derived from the bundled Qt, so it
+# moves on its own when PySide6 raises its floor — the operator needs to see the
+# number that actually ended up in the bundle.
+_summarise() {
+    local min_os
+    min_os="$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" \
+        "$APP/Contents/Info.plist" 2>/dev/null || echo "unknown")"
+    echo "  Architecture : $ARCH"
+    echo "  Requires     : macOS $min_os or later"
+    if [ "$ARCH" = "x86_64" ]; then
+        echo "                 (an Apple Silicon Mac needs Rosetta 2, which is a"
+        echo "                  one-time download — see packaging/README.md)"
+    fi
+}
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 echo "==> Generating application icon"
@@ -132,6 +152,7 @@ if [ -n "$IDENTITY" ]; then
     echo
     echo "Ready to ship: $DMG"
     echo "  Notarised and stapled — it opens on a clinic Mac with no internet."
+    _summarise
 else
     echo
     echo "NOTE: this build is ad-hoc signed and NOT notarised. It runs on this"
@@ -140,4 +161,6 @@ else
     echo "        xattr -dr com.apple.quarantine /Applications/MediFlow.app"
     echo "      For a real build, install the Developer ID certificate for team"
     echo "      $TEAM_ID and see packaging/README.md."
+    echo
+    _summarise
 fi
