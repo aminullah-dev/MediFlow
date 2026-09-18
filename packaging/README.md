@@ -82,27 +82,81 @@ with a drag-to-`/Applications` symlink.
 bash packaging/build-macos.sh        # steps 1-3 together; there is no separate one
 ```
 
-### Signing, and why it is not optional
+### Signing and notarisation
 
 Apple Silicon refuses to start an unsigned binary at all, so the build always
-signs — with an **ad-hoc** signature by default. That is enough to run, not
-enough to distribute:
+signs. What it signs *with* decides whether the result can leave the build Mac.
 
-- An ad-hoc build copied by USB works.
-- An ad-hoc build **downloaded** is quarantined and Gatekeeper reports it as
-  damaged. Clear it on the receiving Mac with
-  `xattr -dr com.apple.quarantine /Applications/MediFlow.app`.
+**Team:** `27RXPRW77S` (Apple Developer Program, Individual). This is the default
+in `build-macos.sh` and is not a secret — it is embedded in every signed binary
+and `codesign -dv --verbose=4 MediFlow.app` prints it. Override with
+`MEDIFLOW_TEAM_ID`. No Apple ID, password or address belongs in this repository.
 
-For a real release, export a Developer ID and the script hardens the runtime and
-timestamps the signature (what notarisation requires):
+#### One-time setup on the build Mac
+
+1. Create a **Developer ID Application** certificate at
+   [developer.apple.com](https://developer.apple.com/account/resources/certificates)
+   and install it in the login keychain. Confirm it is there:
+   ```bash
+   security find-identity -v -p codesigning | grep "Developer ID Application"
+   ```
+   `build-macos.sh` finds it by team id on its own — the certificate's name is
+   the account holder's legal name on an Individual account, so there is nothing
+   stable to hardcode.
+
+2. Create an **app-specific password** at
+   [account.apple.com](https://account.apple.com) → Sign-In and Security, then
+   store the notarisation credentials in the keychain **once**:
+   ```bash
+   xcrun notarytool store-credentials "MediFlow" \
+       --apple-id "<your-apple-id>" --team-id 27RXPRW77S --password "<app-specific-password>"
+   ```
+   From then on the build refers to the profile by name. The password lives in
+   the build Mac's keychain — never in the repository, the environment, or a CI
+   log. Override the profile name with `MEDIFLOW_NOTARY_PROFILE`.
+
+After that, `bash packaging/build-macos.sh` produces a notarised, stapled `.dmg`
+with no further arguments.
+
+#### Why the stapling step is the one that matters here
+
+MediFlow is deployed to clinics with no internet. Gatekeeper, on first launch of
+a notarised app, will try to ask Apple's servers whether the app is notarised —
+unless the ticket is **stapled** into the bundle, in which case it checks
+locally. So the build staples the `.app` *before* packing it into the `.dmg`,
+and staples the `.dmg` afterwards. Notarising only the disk image would leave
+the installed app depending on a network call the clinic cannot make.
+
+#### Why not `codesign --deep`
+
+PyInstaller signs every collected Qt framework and C extension individually,
+inside-out, using the identity and entitlements the spec hands it. That is the
+only ordering notarisation accepts. `--deep` re-signs all of that nested code
+with the *outer* entitlements and gets the submission rejected, which is why the
+script signs only the bundle itself once a real identity is present. `--deep` is
+still used for the ad-hoc path, where there is no certificate and nothing to
+lose.
+
+#### Hardened Runtime entitlements
+
+Notarisation requires the Hardened Runtime, which stops a PyInstaller + PySide6
+app from starting unless three exceptions are granted — CPython executes memory
+it generates itself, and the bundle loads Qt frameworks signed by Apple rather
+than by this team. They are in `packaging/entitlements.plist`, each with the
+reason it is there. If the notarised app fails to launch, that file is the first
+place to look, not the signing command.
+
+#### Without a certificate
+
+The build falls back to an ad-hoc signature. It runs on the build Mac. On any
+other Mac it is refused, and a downloaded copy is quarantined outright:
 
 ```bash
-export MEDIFLOW_CODESIGN_IDENTITY="Developer ID Application: … (TEAMID)"
-bash packaging/build-macos.sh
-xcrun notarytool submit dist_installer/MediFlow-0.2.0.dmg --wait \
-    --apple-id … --team-id … --password …
-xcrun stapler staple dist_installer/MediFlow-0.2.0.dmg
+xattr -dr com.apple.quarantine /Applications/MediFlow.app
 ```
+
+That is a development workaround, not a distribution method — asking a clinic to
+run `xattr` is asking them to disable the check that protects them.
 
 ### Architecture
 
@@ -123,7 +177,8 @@ clinic.
 | `make_icns.py` | Generates the macOS `.icns` from the same `render()`, via `iconutil` (Pillow fallback). |
 | `mediflow.iss` | Inno Setup: Program Files install, Start-menu + optional desktop shortcut, uninstaller. |
 | `build.ps1` | Orchestrates the Windows build. |
-| `build-macos.sh` | Orchestrates the macOS build, signing and `.dmg`. |
+| `build-macos.sh` | Orchestrates the macOS build, signing, notarisation and `.dmg`. |
+| `entitlements.plist` | Hardened Runtime exceptions the notarised build needs to start. |
 
 ---
 

@@ -22,6 +22,7 @@ and a CI job that runs the suite on the real OS.
 | Web UI launchers | `start.bat` · `stop.bat` | `start.command` · `stop.command` |
 | Data folder | `%APPDATA%\MediFlow` | `~/Library/Application Support/MediFlow` |
 | Encryption key sealed with | DPAPI | Keychain (Security.framework) |
+| Code signing | — | Developer ID + notarised, ticket stapled for offline launch |
 | Tested in CI | 3.11 · 3.12 · 3.13 | 3.11 · 3.13 |
 
 macOS builds are single-architecture — an Apple Silicon build does not run on an

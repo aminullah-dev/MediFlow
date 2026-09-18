@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened Runtime exceptions for the notarised MediFlow build.
+
+  Notarisation requires the Hardened Runtime (codesign "options runtime"), and
+  the Hardened Runtime breaks a PyInstaller + PySide6 app unless these three are
+  granted. Each one is here because the app does not start without it, not as a
+  precaution:
+
+  * allow-jit and allow-unsigned-executable-memory: CPython writes and then
+    executes memory it generated itself, and Qt's regex and QML engines do the
+    same.
+  * disable-library-validation: a PyInstaller one-dir bundle loads dozens of Qt
+    frameworks and C extension .so files at runtime. Library validation refuses
+    any library not signed by the same team, and these come out of the PySide6
+    and cryptography wheels.
+
+  None of this weakens the sealing of the field-encryption key: a Keychain ACL
+  is bound to the signed binary, and that binary is still signed and verified.
+
+  Deliberately NOT granted, so reach for one only against a real launch failure:
+  com.apple.security.cs.allow-dyld-environment-variables,
+  com.apple.security.cs.debugger, and every com.apple.security.device.* key.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

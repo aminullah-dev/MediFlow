@@ -39,6 +39,21 @@ VERSION = re.search(
 
 ICON = "../assets/mediflow.icns" if IS_MACOS else "../assets/mediflow.ico"
 
+# Apple Silicon refuses to run an unsigned binary at all, so an unset identity
+# still gets an ad-hoc signature from PyInstaller — enough to launch, not enough
+# to distribute. build-macos.sh resolves the real Developer ID and exports it.
+#
+# Handing PyInstaller the identity matters more than it looks: it signs every
+# collected Qt framework and C extension individually, inside-out, which is the
+# only ordering notarisation accepts. Signing the finished bundle with
+# `codesign --deep` instead re-signs that nested code with the OUTER
+# entitlements and gets the submission rejected.
+CODESIGN_IDENTITY = os.environ.get("MEDIFLOW_CODESIGN_IDENTITY") or None
+ENTITLEMENTS = (
+    str(Path(SPECPATH) / "entitlements.plist")  # noqa: F821 - injected by PyInstaller
+    if IS_MACOS and CODESIGN_IDENTITY else None
+)
+
 hiddenimports = collect_submodules("mediflow")
 datas = collect_data_files("mediflow", includes=["**/*.qm"])
 
@@ -74,10 +89,8 @@ exe = EXE(
     upx=False,
     console=False,          # GUI app — no console window
     icon=ICON,              # relative to this spec file (packaging/)
-    # Apple Silicon refuses to run an unsigned binary at all, so leaving this
-    # empty still gets an ad-hoc signature from PyInstaller. Export a Developer
-    # ID here to produce something that can be notarised and distributed.
-    codesign_identity=os.environ.get("MEDIFLOW_CODESIGN_IDENTITY") or None,
+    codesign_identity=CODESIGN_IDENTITY,
+    entitlements_file=ENTITLEMENTS,
 )
 
 coll = COLLECT(
