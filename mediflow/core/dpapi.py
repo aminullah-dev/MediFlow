@@ -1,24 +1,28 @@
 """Windows DPAPI wrapper (via ctypes — no external dependency).
 
 `CryptProtectData` / `CryptUnprotectData` encrypt data so it can only be
-decrypted by the same Windows user account on the same machine. Used to protect
-the field-encryption key at rest instead of storing it in the clear.
+decrypted by the same Windows user account on the same machine. This is the
+Windows backend of :mod:`mediflow.core.secret_store`; callers should go through
+that module rather than importing this one directly.
 
-On non-Windows platforms (or if the API is unavailable) the functions return
-``None`` so callers can fall back to plaintext storage — this keeps the code
-runnable for headless tests/CI while giving real protection on the Windows
-target.
+Importable everywhere
+---------------------
+``ctypes.wintypes`` raises ``ValueError`` at *import* time off Windows, so it is
+imported inside the platform guard below. That matters: MediFlow also ships for
+macOS, and a module that cannot even be imported there would drag the whole
+``mediflow.core`` package down with it. Every public function returns
+``None``/``False`` when DPAPI is not the platform's protection backend.
 """
 from __future__ import annotations
 
 import ctypes
 import os
-from ctypes import wintypes
 
 _AVAILABLE = os.name == "nt"
 
 
 if _AVAILABLE:
+    from ctypes import wintypes
 
     class _Blob(ctypes.Structure):
         _fields_ = [("cbData", wintypes.DWORD),

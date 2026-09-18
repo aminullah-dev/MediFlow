@@ -34,6 +34,10 @@ instance/
 *.hmac
 .secret_key
 .session_key
+# The key files are replaced atomically via a staged sibling; a crash between
+# the write and the rename can leave one behind, and it holds the same secret.
+.secret_key.new
+.session_key.new
 *.key
 *.pem
 .env
