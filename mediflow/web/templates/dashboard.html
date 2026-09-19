@@ -6,16 +6,117 @@
 <h1 class="page-title">داشبورد</h1>
 <p class="page-sub">خلاصه‌ی امروز</p>
 
-{% if stats %}
+{% if not stats %}
+<p class="banner error" role="alert">خلاصه‌ی داشبورد در دسترس نیست.</p>
+{% else %}
+
+{#
+  Alerts come first, before the counters. A counter says what happened; an
+  alert says what is wrong and unattended. Someone opening this page at 8am
+  needs the second one. Every box links to the module that fixes it, because
+  a number nobody can act on is decoration.
+
+  Each alert carries its own Persian label, so the status colour is never the
+  only thing distinguishing it.
+#}
+{% set alerts = [
+  ('/pharmacy',  'danger', stats.out_of_stock_medications, 'دوای تمام‌شده',   'موجودی صفر — قابل تجویز نیست'),
+  ('/pharmacy',  'warn',   stats.expiring_batches,         'بچ در حال انقضا', 'تا ۹۰ روز آینده منقضی می‌شود'),
+  ('/inventory', 'warn',   stats.low_stock_items,          'موجودی کم',       'به حد سفارش مجدد رسیده'),
+  ('/lab',       'warn',   stats.open_lab_requests,        'لابراتوار معطل',  'نتیجه هنوز ثبت نشده'),
+  ('/billing',   'warn',   stats.unpaid_invoices,          'صورتحساب باز',    'باقیمانده: ' ~ '{:,.0f}'.format(stats.outstanding_total) ~ ' افغانی'),
+] %}
+
+<section class="card record-card">
+  <h2 class="section-title">نیازمند توجه</h2>
+  {% if stats.alert_total %}
+  <div class="alert-grid">
+    {% for href, level, count, label, meta in alerts if count %}
+    <a class="alert-box {{ level }}" href="{{ href }}">
+      <span class="alert-count">{{ count }}</span>
+      <div>
+        <strong>{{ label }}</strong>
+        <span class="meta">{{ meta }}</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="queue-empty">هیچ موردی نیاز به توجه ندارد.</p>
+  {% endif %}
+</section>
+
 <section class="stat-grid">
   <a class="stat" href="/patients"><span class="stat-value">{{ stats.total_patients }}</span><span class="stat-label">مجموع بیماران</span></a>
   <div class="stat"><span class="stat-value">{{ stats.patients_today }}</span><span class="stat-label">بیماران امروز</span></div>
-  <div class="stat"><span class="stat-value">{{ stats.appointments_today }}</span><span class="stat-label">نوبت‌های امروز</span></div>
-  <div class="stat"><span class="stat-value">{{ stats.waiting_now }}</span><span class="stat-label">در انتظار</span></div>
+  <a class="stat" href="/appointments"><span class="stat-value">{{ stats.appointments_today }}</span><span class="stat-label">نوبت‌های امروز</span></a>
+  <a class="stat" href="/reception"><span class="stat-value">{{ stats.waiting_now }}</span><span class="stat-label">در انتظار</span></a>
   <div class="stat"><span class="stat-value">{{ stats.completed_today }}</span><span class="stat-label">تکمیل‌شده امروز</span></div>
+  <a class="stat" href="/billing"><span class="stat-value">{{ '{:,.0f}'.format(stats.revenue_today) }}</span><span class="stat-label">دریافتی امروز (افغانی)</span></a>
 </section>
-{% else %}
-<p class="banner error">خلاصه‌ی داشبورد در دسترس نیست.</p>
+
+<section class="card record-card">
+  <h2 class="section-title">نوبت‌ها در ۱۴ روز گذشته</h2>
+  {% if trend and not trend.is_empty %}
+  {#
+    The plot runs left-to-right inside this RTL page: oldest day on the left.
+    That matches how the rest of MediFlow already treats numbers and dates —
+    the desktop views wrap them in LRM marks for the same reason. A mirrored
+    time axis beside left-to-right numerals is what actually confuses people.
+
+    No script: every mark carries a <title>, which the browser shows on hover.
+    A clinic machine has no internet to fetch a charting library from.
+  #}
+  <figure class="chart" dir="ltr">
+    <svg viewBox="0 0 {{ trend.width }} {{ trend.height }}" role="img"
+         aria-label="نمودار نوبت‌های روزانه در چهارده روز گذشته"
+         preserveAspectRatio="none">
+      <polyline class="chart-area" points="{{ trend.area }}"/>
+      <polyline class="chart-line" points="{{ trend.line }}"/>
+      <line class="chart-baseline" x1="0" y1="{{ trend.baseline }}"
+            x2="{{ trend.width }}" y2="{{ trend.baseline }}"/>
+      {% for mark in trend.marks %}
+      <circle class="chart-dot" cx="{{ mark.x }}" cy="{{ mark.y }}" r="3.5">
+        <title>{{ mark.day }} — {{ mark.value }} نوبت</title>
+      </circle>
+      {% if mark.label %}
+      <text class="chart-label" x="{{ mark.x }}" y="{{ mark.y - 8 }}">{{ mark.label }}</text>
+      {% endif %}
+      {% endfor %}
+      {% for mark in trend.marks %}
+      {% if loop.first or loop.last %}
+      {# Anchored at the ends rather than centred: a middle-anchored label on
+         the first mark hangs off the viewBox and the browser clips it. #}
+      <text class="chart-tick {{ 'start' if loop.first else 'end' }}"
+            x="{{ mark.x }}" y="{{ trend.height - 6 }}">{{ mark.day[5:] }}</text>
+      {% endif %}
+      {% endfor %}
+    </svg>
+  </figure>
+
+  {# The table is the accessible view of the same numbers, not a second source. #}
+  <details class="chart-table">
+    <summary>نمایش جدولی</summary>
+    <div class="table-wrap flush">
+      <table class="table">
+        <thead><tr><th>روز</th><th>نوبت</th><th>تکمیل‌شده</th></tr></thead>
+        <tbody>
+          {% for point in stats.trend %}
+          <tr>
+            <td class="mono">{{ point.day }}</td>
+            <td class="mono">{{ point.appointments }}</td>
+            <td class="mono">{{ point.completed }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% else %}
+  <p class="queue-empty">در چهارده روز گذشته نوبتی ثبت نشده است.</p>
+  {% endif %}
+</section>
+
 {% endif %}
 
 <section class="card info-card">

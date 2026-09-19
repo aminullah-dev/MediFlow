@@ -61,6 +61,7 @@ from mediflow.services.patient_service import PatientRegistration
 from mediflow.services.pharmacy_service import MedicationInput
 from mediflow.services.report_service import REPORTS, export_excel
 from mediflow.services.user_service import UserInput
+from mediflow.web.charts import build_trend
 
 log = get_logger("web")
 
@@ -661,6 +662,9 @@ def create_app(config: Config | None = None) -> FastAPI:
         return TEMPLATES.TemplateResponse(request, "dashboard.html", {
             "user": user,
             "stats": stats,
+            # Geometry, not data: the template should place marks, not do
+            # arithmetic. Jinja is a poor place to compute a y-scale.
+            "trend": build_trend(stats.trend) if stats else None,
             "data_dir": str(config.paths.base),
         })
 

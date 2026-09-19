@@ -66,6 +66,13 @@ _PALETTES: dict[Theme, dict[str, str]] = {
         "danger_hover": "#b91c1c",
         "danger_soft": "#fdecec",
         "success": "#15803d",  # #16a34a was 3.30:1 on white
+        # Amber, carried over from the web palette so an alert reads the same
+        # in both builds. #d97706 is only 3.1:1 on a light surface, hence the
+        # darker step; warn_ink is for text sitting on warn_soft, where amber
+        # on its own tint is unreadable at page weight.
+        "warn": "#9c5604",
+        "warn_soft": "#fdf3da",
+        "warn_ink": "#8a5300",
         "border": "#dde7e9",
         # border_strong draws the outline of inputs and buttons. On a white
         # card the old #c4d3d6 was 1.54:1 — the control had no discernible
@@ -96,6 +103,9 @@ _PALETTES: dict[Theme, dict[str, str]] = {
         "danger_hover": "#f58787",
         "danger_soft": "#3a1f1f",
         "success": "#37c26a",
+        "warn": "#d97706",
+        "warn_soft": "#3a2f0e",
+        "warn_ink": "#e0a93a",
         "border": "#243a41",
         "border_strong": "#4e7a89",  # #33505a was 1.97:1 on the card fill
         "sidebar_top": "#072830",
@@ -200,6 +210,30 @@ QLabel#StatIcon {{
 }}
 QLabel#StatValue {{ font-size: 30px; font-weight: 700; color: {text}; }}
 QLabel#StatCaption {{ color: {text_muted}; font-size: 13px; font-weight: 500; }}
+
+/* Alert cards. The severity rides on a dynamic `level` property rather than a
+   separate objectName, so one widget class covers both and the QSS stays the
+   single place the two severities are described. A coloured leading edge only:
+   the card's own title carries the meaning, so the colour is never alone. */
+QFrame#AlertCard {{
+    background-color: {surface};
+    border: 1px solid {border};
+    border-radius: 14px;
+}}
+/* Qt Style Sheets have no logical properties, so the leading edge cannot be
+   written once: `border-left` stays physically left when the app flips to RTL
+   for Dari and Pashto, putting the bar on the trailing side. The widget sets a
+   `side` property from the live layout direction and these four rules pick the
+   matching physical edge. */
+QFrame#AlertCard[level="danger"][side="left"]  {{ border-left: 3px solid {danger}; }}
+QFrame#AlertCard[level="danger"][side="right"] {{ border-right: 3px solid {danger}; }}
+QFrame#AlertCard[level="warn"][side="left"]    {{ border-left: 3px solid {warn}; }}
+QFrame#AlertCard[level="warn"][side="right"]   {{ border-right: 3px solid {warn}; }}
+QLabel#AlertCount {{ font-size: 24px; font-weight: 700; color: {text}; }}
+QFrame#AlertCard[level="danger"] QLabel#AlertCount {{ color: {danger}; }}
+QFrame#AlertCard[level="warn"] QLabel#AlertCount {{ color: {warn}; }}
+QLabel#AlertTitle {{ color: {text}; font-size: 13px; font-weight: 700; }}
+QLabel#AlertMeta {{ color: {text_muted}; font-size: 11px; }}
 
 /* ---- Typography ------------------------------------------------------ */
 QLabel#PageTitle {{ font-size: 22px; font-weight: 700; color: {text}; letter-spacing: -0.2px; }}
