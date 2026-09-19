@@ -165,6 +165,20 @@ def _load_or_create_key(key_path: Path) -> bytes:
     return key
 
 
+def install_key(key_path: Path, key: bytes) -> None:
+    """Make ``key`` this installation's field-encryption key, sealed at rest.
+
+    Used when restoring a backup taken on another machine: that database is
+    encrypted with the key that travelled beside it, so adopting the key is the
+    only way its columns become readable here. Sealing is redone locally, so a
+    key that arrived from a Windows PC ends up bound to this Mac's Keychain.
+
+    Anything already encrypted with the previous key becomes unreadable, so the
+    caller must have taken a backup of it first — :class:`BackupService` does.
+    """
+    _write_key(key_path, key)
+
+
 def _write_key(key_path: Path, key: bytes) -> None:
     """Write the key sealed by the OS where possible, else as a restricted file."""
     from mediflow.core import secret_store

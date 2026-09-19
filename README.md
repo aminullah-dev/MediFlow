@@ -213,7 +213,13 @@ Stored as human-readable string values (`AppointmentStatus`, `InvoiceStatus`,
   *Audit Log → Verify integrity* detects any after-the-fact edit or deletion.
 - **Backups:** consistent online SQLite backups, each with an **HMAC signature**;
   restore refuses any file that fails `PRAGMA integrity_check`, lacks the MediFlow
-  schema, or whose signature does not verify.
+  schema, or whose signature does not verify. A backup taken **with a passphrase**
+  also carries the field-encryption key, wrapped against that passphrase
+  (PBKDF2-SHA256, 390k rounds), so it can be restored on a different machine —
+  the only way its encrypted columns are ever readable there. Without a
+  passphrase nothing about the key leaves the machine, which keeps a lost USB
+  stick worthless; with one, the passphrase is what stands between a lost stick
+  and every patient's Tazkira, so it is never stored and cannot be recovered.
 - The initial admin password is written to a restricted one-time file (never to
   the log).
 

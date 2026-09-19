@@ -1185,18 +1185,21 @@ def create_app(config: Config | None = None) -> FastAPI:
         return _backup_page(request, user)
 
     @app.post("/backup/create", response_class=HTMLResponse)
-    def backup_create(request: Request):
+    def backup_create(request: Request, passphrase: str = Form("")):
         user = _current_user(request)
         if user is None:
             return RedirectResponse("/login", status_code=303)
         if not user.can("backup.run"):
             return _deny(request, user)
         try:
-            path = container.backup.create_backup()
+            path = container.backup.create_backup(passphrase=passphrase or None)
         except MediFlowError as exc:
             return _backup_page(request, user, error=_fa_error(exc))
-        return _backup_page(request, user,
-                            message=f"نسخه پشتیبان ساخته شد: {path.name}")
+        message = f"نسخه پشتیبان ساخته شد: {path.name}"
+        if passphrase:
+            message += (" — کلید رمزنگاری همراهش رفت. بدون همان رمز عبور، "
+                        "این پشتیبان روی ماشین دیگر باز نمی‌شود.")
+        return _backup_page(request, user, message=message)
 
     @app.get("/backup/download")
     def backup_download(request: Request, name: str = ""):
@@ -1215,7 +1218,8 @@ def create_app(config: Config | None = None) -> FastAPI:
                             media_type="application/octet-stream")
 
     @app.post("/backup/restore", response_class=HTMLResponse)
-    def backup_restore(request: Request, name: str = Form("")):
+    def backup_restore(request: Request, name: str = Form(""),
+                       passphrase: str = Form("")):
         user = _current_user(request)
         if user is None:
             return RedirectResponse("/login", status_code=303)
@@ -1223,13 +1227,22 @@ def create_app(config: Config | None = None) -> FastAPI:
             return _deny(request, user)
         try:
             path = _resolve_backup(name)
-            safety = container.backup.restore_backup(path)
+            result = container.backup.restore_backup(path,
+                                                     passphrase=passphrase or None)
         except MediFlowError as exc:
             return _backup_page(request, user, error=_fa_error(exc))
         log.warning("Database restored from %s by '%s'", path.name, user.username)
-        return _backup_page(request, user, message=(
-            f"بازگردانی از «{path.name}» انجام شد. "
-            f"نسخه ایمنی وضعیت قبلی: {safety.name}"), restored=True)
+        message = (f"بازگردانی از «{path.name}» انجام شد. "
+                   f"نسخه ایمنی وضعیت قبلی: {result.safety.name}")
+        if result.restart_required:
+            # Said in the strongest terms available here: until the server is
+            # restarted the process still holds the previous key, so the
+            # restored records will not decrypt and must not be edited.
+            message += (" کلید رمزنگاری این پشتیبان پذیرفته شد — "
+                        "سرور را ببندید و دوباره باز کنید (stop.command سپس "
+                        "start.command). تا آن زمان اطلاعات بازگردانی‌شده "
+                        "خوانده نمی‌شود.")
+        return _backup_page(request, user, message=message, restored=True)
 
     @app.post("/backup/delete", response_class=HTMLResponse)
     def backup_delete(request: Request, name: str = Form("")):

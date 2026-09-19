@@ -8,10 +8,20 @@
     <h1 class="page-title">پشتیبان‌گیری</h1>
     <p class="page-sub">{{ backups | length }} نسخه پشتیبان</p>
   </div>
-  <form method="post" action="/backup/create">
+  <form method="post" action="/backup/create" class="inline-form no-rule">
+    <input class="field narrow" type="password" name="passphrase"
+           autocomplete="new-password" placeholder="رمز عبور (اختیاری)">
     <button class="btn-primary" type="submit">+ ساخت نسخه پشتیبان</button>
   </form>
 </div>
+
+<p class="field-hint">
+  رمز عبور را فقط وقتی بگذارید که می‌خواهید این پشتیبان روی <strong>کامپیوتر
+  دیگری</strong> بازگردانی شود: کلید رمزنگاری همراه آن می‌رود، قفل‌شده با همان
+  رمز. رمز را جایی امن یادداشت کنید — هیچ‌جا ذخیره نمی‌شود و قابل بازیابی نیست.
+  بدون رمز، پشتیبان فقط روی همین کامپیوتر باز می‌شود، و فلش گم‌شده هم به درد
+  کسی نمی‌خورد.
+</p>
 
 {% if message %}<p class="banner ok">{{ message }}</p>{% endif %}
 {% if error %}<p class="banner error" role="alert">{{ error }}</p>{% endif %}
@@ -32,7 +42,9 @@
       <tbody>
         {% for b in backups %}
         <tr>
-          <td class="mono">{{ b.name }}</td>
+          <td class="mono">{{ b.name }}{% if b.has_key %}
+            <span class="tag" title="کلید رمزنگاری همراه این پشتیبان است">+ کلید</span>
+          {% endif %}</td>
           <td class="mono">{{ b.modified.strftime('%Y-%m-%d %H:%M') }}</td>
           <td class="mono">{{ '%.1f' % (b.size_bytes / 1024 / 1024) }} MB</td>
           <td class="actions">
@@ -40,6 +52,11 @@
             <form method="post" action="/backup/restore"
                   onsubmit="return confirm('هشدار جدی\n\nتمام داده‌های فعلی با محتوای «{{ b.name }}» جایگزین می‌شود.\nقبل از بازگردانی، یک نسخه ایمنی از وضعیت فعلی خودکار ساخته می‌شود.\n\nادامه می‌دهید؟');">
               <input type="hidden" name="name" value="{{ b.name }}">
+              {% if b.has_key %}
+              {# Asked for only when a key actually travelled with this file. #}
+              <input class="field narrow" type="password" name="passphrase"
+                     autocomplete="off" placeholder="رمز پشتیبان">
+              {% endif %}
               <button class="btn-mini danger" type="submit">بازگردانی</button>
             </form>
             <form method="post" action="/backup/delete"
