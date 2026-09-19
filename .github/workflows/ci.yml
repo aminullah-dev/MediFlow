@@ -8,15 +8,22 @@ on:
 
 jobs:
   test:
-    # MediFlow is a Windows desktop product, and mediflow/core/dpapi.py imports
-    # ctypes.wintypes, which raises on non-Windows. Testing on the target OS
-    # keeps CI faithful and sidesteps that entirely.
-    runs-on: windows-latest
+    # MediFlow ships for Windows and macOS, and the two differ exactly where it
+    # matters: DPAPI vs. the Keychain seals the field-encryption key. Testing on
+    # one of them would leave the other's secret store unproven.
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [windows-latest, macos-latest]
         # Mirrors requires-python = ">=3.11" in pyproject.toml.
         python-version: ["3.11", "3.12", "3.13"]
+        exclude:
+          # macOS runners cost ten times a Linux/Windows minute. 3.11 and 3.13
+          # bracket the supported range; the middle version is covered on
+          # Windows, where the same pure-Python code runs.
+          - os: macos-latest
+            python-version: "3.12"
 
     steps:
       - uses: actions/checkout@v4
@@ -35,9 +42,70 @@ jobs:
       - name: Run tests
         # The suite is headless (no widgets are constructed), but the offscreen
         # platform keeps any future GUI test from needing a display.
+        #
+        # MEDIFLOW_TEST_OS_KEYCHAIN opts in to the tests that touch the real
+        # DPAPI / Keychain APIs. They are off by default so a developer's own
+        # login keychain is never written to by a plain `pytest`; on a throwaway
+        # runner that concern does not apply, and skipping them here would mean
+        # the ctypes bindings were never actually executed anywhere.
         env:
           QT_QPA_PLATFORM: offscreen
+          MEDIFLOW_TEST_OS_KEYCHAIN: "1"
         run: pytest
+
+  package:
+    # A spec file that no longer builds is found at release time, when it is
+    # most expensive. One build per platform, no installer, no signing.
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install project and PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "." pyinstaller
+
+      - name: Regenerate the application icons
+        run: |
+          python packaging/make_icon.py
+          python packaging/make_icns.py
+
+      - name: Build the Windows app
+        if: runner.os == 'Windows'
+        run: pyinstaller packaging/mediflow.spec --noconfirm --clean
+
+      - name: Check the Windows app was produced
+        if: runner.os == 'Windows'
+        run: |
+          if (-not (Test-Path "dist/MediFlow/MediFlow.exe")) { exit 1 }
+
+      # The whole script, not just PyInstaller: icon generation, the signing
+      # branch and the .dmg step are exactly the parts that break unnoticed.
+      # With no Developer ID in the runner's keychain it takes the ad-hoc path
+      # and skips notarisation, so nothing here needs a certificate.
+      - name: Build, sign and package the macOS app
+        if: runner.os == 'macOS'
+        run: bash packaging/build-macos.sh
+
+      - name: Check the macOS bundle and disk image were produced
+        if: runner.os == 'macOS'
+        run: |
+          test -x "dist/MediFlow.app/Contents/MacOS/MediFlow"
+          ls dist_installer/MediFlow-*.dmg
+          # An unsigned bundle will not launch on Apple Silicon at all, so a
+          # missing signature is a build failure, not a packaging detail.
+          codesign --verify --deep --strict "dist/MediFlow.app"
 
   lint:
     runs-on: ubuntu-latest
@@ -55,7 +123,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install ruff==0.16.5   # pinned: see [tool.ruff.lint] in pyproject.toml
 
-      # Lint only — never imports the package, so the Windows-only modules and
-      # the Qt runtime libraries are irrelevant here.
+      # Lint only — never imports the package, so the platform-specific modules
+      # and the Qt runtime libraries are irrelevant here.
       - name: Ruff
         run: ruff check mediflow tests

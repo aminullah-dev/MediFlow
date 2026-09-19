@@ -29,6 +29,7 @@ from starlette.background import BackgroundTask
 from starlette.middleware.sessions import SessionMiddleware
 
 from mediflow.app import build_container
+from mediflow.core import secret_store
 from mediflow.core.config import Config
 from mediflow.core.constants import (
     AccountType,
@@ -487,19 +488,46 @@ def _session_secret(config: Config) -> str:
 
     Regenerating this on every boot would silently sign every user out on each
     restart, which on a clinic machine looks exactly like "the login broke".
+
+    Sealed to the OS account like the field-encryption key and for the same
+    reason: whoever reads it can mint a valid session cookie. Unlike that key it
+    is *replaceable* — an unreadable one costs everyone one fresh sign-in and
+    nothing else — so a failed unseal issues a new key instead of refusing to
+    start the server.
     """
     path = config.paths.base / ".session_key"
     if path.exists():
-        text = path.read_text(encoding="utf-8").strip()
-        if text:
-            return text
+        blob = path.read_bytes()
+        if secret_store.is_protected(blob):
+            opened = secret_store.unprotect(blob)
+            if opened:
+                return opened.decode("utf-8")
+            log.warning(
+                "The session key could not be unsealed with %s; issuing a new "
+                "one. Anyone currently signed in will have to sign in again.",
+                secret_store.describe(),
+            )
+        else:
+            existing = blob.decode("utf-8", errors="replace").strip()
+            if existing:
+                if secret_store.is_available():
+                    _write_session_secret(path, existing)   # seal it in place
+                return existing
     key = secrets.token_urlsafe(48)
-    path.write_text(key, encoding="utf-8")
+    _write_session_secret(path, key)
+    return key
+
+
+def _write_session_secret(path: Path, key: str) -> None:
+    """Write the session key sealed where the OS allows, atomically either way."""
+    raw = key.encode("utf-8")
+    staged = path.with_name(path.name + ".new")
+    staged.write_bytes(secret_store.protect(raw) or raw)
     try:
-        os.chmod(path, 0o600)
+        os.chmod(staged, 0o600)             # before it becomes the live key
     except OSError:  # pragma: no cover - best effort on Windows
         pass
-    return key
+    os.replace(staged, path)
 
 
 def create_app(config: Config | None = None) -> FastAPI:

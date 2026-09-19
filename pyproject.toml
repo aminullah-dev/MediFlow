@@ -127,8 +127,6 @@ ignore = [
 "tests/**" = ["S101", "ARG001", "ARG002"]
 # Qt calls this override by name; renaming it silently stops event filtering.
 "mediflow/ui/dialogs/login_dialog.py" = ["N802"]
-# ctypes structures deliberately mirror the Win32 names they map onto.
-"mediflow/core/windows_identity.py" = ["N801"]
 # Console entry points: print() is the output, not a stray debug statement.
 "mediflow/app.py" = ["T201"]
 "mediflow/web/__main__.py" = ["T201"]

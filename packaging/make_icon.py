@@ -1,7 +1,10 @@
-"""Generate the MediFlow application icon (assets/mediflow.ico).
+"""Generate the MediFlow Windows application icon (assets/mediflow.ico).
 
 A teal rounded square with a white medical cross — matches the app's medical
 palette. Multi-resolution .ico for the taskbar, Start menu and installer.
+
+:func:`render` is the single source of the artwork; ``make_icns.py`` reuses it
+for the macOS ``.icns`` so the two platforms cannot drift apart visually.
 """
 from __future__ import annotations
 
@@ -17,7 +20,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 _OUT = _ROOT / "assets" / "mediflow.ico"
 
 
-def _render(size: int) -> Image.Image:
+def render(size: int) -> Image.Image:
     # Render at 4x then downscale for crisp anti-aliasing.
     scale = 4
     s = size * scale
@@ -41,7 +44,7 @@ def _render(size: int) -> Image.Image:
 def main() -> None:
     _OUT.parent.mkdir(parents=True, exist_ok=True)
     sizes = [16, 24, 32, 48, 64, 128, 256]
-    images = [_render(sz) for sz in sizes]
+    images = [render(sz) for sz in sizes]
     images[0].save(_OUT, format="ICO", sizes=[(s, s) for s in sizes], append_images=images[1:])
     print("Wrote", _OUT)
 

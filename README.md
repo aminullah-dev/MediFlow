@@ -1,10 +1,41 @@
 # MediFlow
 
 **Offline Clinic & Hospital Management System for Afghanistan.**
-Windows desktop · fully offline · Dari & Pashto (RTL) · Python 3.13 · PySide6 · SQLite.
+Windows & macOS desktop · fully offline · Dari & Pashto (RTL) · Python 3.13 ·
+PySide6 · SQLite.
 
 MediFlow runs entirely on one machine with no internet, cloud, or subscription.
 All data lives in a single per-user folder, making backup and restore trivial.
+
+---
+
+## Supported platforms
+
+Both are first-class: each has a signed-in-account secret store behind the
+field-encryption key, a build script that produces a double-clickable installer,
+and a CI job that runs the suite on the real OS.
+
+| | Windows 10/11 | macOS 11+ |
+|---|---|---|
+| Installer | `MediFlow-Setup-<v>.exe` (Inno Setup) | `MediFlow-<v>-<arch>.dmg` (drag to Applications) |
+| Build | `packaging\build.ps1` | `packaging/build-macos.sh` ([step-by-step, fa](packaging/QUICKSTART-macOS-fa.md)) |
+| Web UI launchers | `start.bat` · `stop.bat` | `start.command` · `stop.command` |
+| Data folder | `%APPDATA%\MediFlow` | `~/Library/Application Support/MediFlow` |
+| Encryption key sealed with | DPAPI | Keychain (Security.framework) |
+| Code signing | — | Developer ID + notarised, ticket stapled for offline launch |
+| Tested in CI | 3.11 · 3.12 · 3.13 | 3.11 · 3.13 |
+
+macOS builds are single-architecture — PySide6 has no universal2 wheel. An
+Apple Silicon build does not run on an Intel Mac, and an Intel build needs
+Rosetta 2 on Apple Silicon, which is a one-time **download** an offline clinic
+cannot make. Know the target hardware before building; see
+[packaging/README.md](packaging/README.md). The minimum macOS version is not
+hardcoded — it is read out of the Qt being bundled and printed at the end of
+the build.
+
+Linux is *not* a target: the code runs there, but with no OS secret store the
+encryption key falls back to file permissions, and the app logs a warning
+saying exactly that.
 
 ---
 
@@ -34,7 +65,8 @@ tri-lingual (Dari · Pashto · English) with runtime RTL and light/dark themes.
 | 16 | **Settings** (تنظیمات) | Clinic profile + preferences | `SettingsService` |
 
 The data, security, and persistence core is proven on every commit via `pytest`
-(7 passing end-to-end tests); every module was verified by driving its real
+(117 passing tests across the core, the web UI and the platform secret stores);
+every module was verified by driving its real
 PySide6 widgets (rendered to screenshots) across all three languages and both
 themes.
 
@@ -48,6 +80,7 @@ by the `ui-ux-pro-max` design-intelligence skill.
 
 ```bash
 python -m venv .venv && . .venv/Scripts/activate   # Windows
+python -m venv .venv && . .venv/bin/activate       # macOS
 pip install -r requirements.txt
 pip install -e ".[dev]"
 
@@ -164,8 +197,14 @@ Stored as human-readable string values (`AppointmentStatus`, `InvoiceStatus`,
 - **Account protection:** progressive lockout after 5 failures (15-minute lock);
   every attempt (success/failure) recorded in `login_history`.
 - **Field encryption:** sensitive columns (e.g. Tazkira / national ID) encrypted
-  with a Fernet key that is itself **DPAPI-protected** at rest on Windows (bound
-  to the user account); legacy plaintext keys are migrated automatically.
+  with a Fernet key that is itself sealed at rest to the signed-in OS account —
+  **DPAPI** on Windows, the **Keychain** on macOS — so a copied data folder is
+  useless on another machine. The file says which sealed it, so a folder carried
+  between platforms reports that in a sentence rather than failing to decrypt.
+  Legacy plaintext keys are migrated in place, and the key file is replaced
+  atomically so a crash can never leave it half-written. The same sealing covers
+  the web session key. Where no secure store exists the key falls back to file
+  permissions — and that fallback is always logged, never silent.
 - **RBAC (defense in depth):** fine-grained `module.action` permissions enforced
   in the **service layer** (`@require` decorators over each mutating method),
   not just by hiding UI navigation.
@@ -210,12 +249,15 @@ Stored as human-readable string values (`AppointmentStatus`, `InvoiceStatus`,
   status flow; double-entry chart of accounts, journal, balances, P&L.
 - **Phase 6 — HR, Reports, Backup, Settings ✅ done:** employees/attendance/payroll,
   cross-module reports with Excel export, online SQLite backup/restore, settings.
-- **Phase 7 — Printing & packaging (next):** A4 + thermal (ReportLab / Qt Print),
-  receipt/prescription/report templates, Windows installer (PyInstaller + Inno).
+- **Phase 7 — Printing & packaging (in progress):** packaging is done for both
+  platforms — Windows installer (PyInstaller + Inno Setup) and macOS `.app`/`.dmg`
+  (PyInstaller + `hdiutil`), each smoke-built in CI. Still open: A4 + thermal
+  printing (ReportLab / Qt Print) and receipt/prescription/report templates.
 
 > Security hardening completed from the review: service-layer RBAC enforcement,
-> DPAPI-protected encryption key, HMAC-signed backups with integrity checks, and
-> a tamper-evident audit hash chain. See the **Security** section above.
+> an OS-sealed encryption key on both platforms, HMAC-signed backups with
+> integrity checks, and a tamper-evident audit hash chain. See the **Security**
+> section above.
 
 ---
 
@@ -224,6 +266,9 @@ Stored as human-readable string values (`AppointmentStatus`, `InvoiceStatus`,
 ```
 mediflow/
   core/          config, logging, security, exceptions, constants
+                 secret_store  — picks the platform's secret store
+                 dpapi         — Windows backend  (crypt32, ctypes)
+                 macos_keychain— macOS backend    (Security.framework, ctypes)
   data/
     base.py mixins.py database.py audit.py schema.py
     models/        user, audit, clinic, patient, appointment
@@ -233,8 +278,13 @@ mediflow/
   i18n/          translator (runtime switch, RTL) + translations/
   ui/            theme, main_window, views/, dialogs/, widgets/
   migrations/    Alembic env + versions/
+  web/           FastAPI + Jinja browser UI (same services, no Qt)
   app.py __main__.py
-tests/           foundation end-to-end tests
+packaging/       mediflow.spec (both platforms), build.ps1, build-macos.sh,
+                 mediflow.iss, make_icon.py, make_icns.py
+start.bat stop.bat          Windows web-UI launchers
+start.command stop.command  macOS web-UI launchers
+tests/           foundation, web, keyboard-layout and secret-store tests
 ```
 
 ---

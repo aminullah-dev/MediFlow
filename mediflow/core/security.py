@@ -16,6 +16,12 @@ Field encryption
     A symmetric Fernet key is generated on first run and stored in the app data
     directory with owner-only permissions. Selected columns (e.g. national id)
     are encrypted through :class:`FieldCipher` before being written to SQLite.
+
+    The key file itself is sealed to the signed-in OS account by
+    :mod:`mediflow.core.secret_store` — DPAPI on Windows, the Keychain on macOS
+    — so copying it off the machine yields nothing usable. Where no such store
+    exists the key falls back to file permissions alone, and that fallback is
+    always logged rather than taken quietly.
 """
 from __future__ import annotations
 
@@ -132,39 +138,26 @@ class FieldCipher:
         return hmac.new(self._key, data, hashlib.sha256).hexdigest()
 
 
-# Marks a key file whose contents are DPAPI-protected (vs. a legacy raw key).
-_DPAPI_MAGIC = b"DPAPI1\n"
-
-
 def _load_or_create_key(key_path: Path) -> bytes:
     from cryptography.fernet import Fernet
 
-    from mediflow.core import dpapi
+    from mediflow.core import secret_store
 
     if key_path.exists():
         blob = key_path.read_bytes()
-        if blob.startswith(_DPAPI_MAGIC):
-            key = dpapi.unprotect(blob[len(_DPAPI_MAGIC):])
+        if secret_store.is_protected(blob):
+            key = secret_store.unprotect(blob)
             if key is None:
                 from mediflow.core.exceptions import MediFlowError
 
-                raise MediFlowError(
-                    "Cannot decrypt the field-encryption key — it was protected "
-                    "for a different Windows user or machine. Sign in as the "
-                    "Windows user who installed MediFlow, or restore the data "
-                    "folder from a backup taken on this machine."
-                )
+                raise MediFlowError(secret_store.recovery_hint(blob))
             return key
-        # Legacy plaintext key: upgrade to DPAPI at rest — but only rewrite the
-        # file when protection actually succeeded, never truncate-rewrite the
-        # same plaintext on every startup (a crash mid-write would lose the key).
-        protected = dpapi.protect(blob)
-        if protected:
-            key_path.write_bytes(_DPAPI_MAGIC + protected)
-            try:
-                os.chmod(key_path, stat.S_IRUSR | stat.S_IWUSR)
-            except OSError:  # pragma: no cover
-                pass
+        # Legacy plaintext key: seal it at rest — but only rewrite the file when
+        # sealing actually succeeded, never truncate-rewrite the same plaintext
+        # on every startup.
+        sealed = secret_store.protect(blob)
+        if sealed:
+            _replace_key_file(key_path, sealed)
         return blob
 
     key = Fernet.generate_key()
@@ -173,21 +166,39 @@ def _load_or_create_key(key_path: Path) -> bytes:
 
 
 def _write_key(key_path: Path, key: bytes) -> None:
-    """Write the key DPAPI-protected when possible, else as a restricted plain file."""
-    from mediflow.core import dpapi
+    """Write the key sealed by the OS where possible, else as a restricted file."""
+    from mediflow.core import secret_store
+    from mediflow.core.logging_config import get_logger
 
-    protected = dpapi.protect(key)
-    if not protected and dpapi.is_available():  # same gate as the write below
-        # DPAPI is present but protection failed — surface it rather than
-        # silently persisting the encryption key in the clear.
-        from mediflow.core.logging_config import get_logger
-
-        get_logger("security").warning(
-            "DPAPI protection failed; the field-encryption key is stored "
-            "unprotected. It relies on filesystem permissions only."
+    sealed = secret_store.protect(key)
+    if not sealed:
+        # Never silent. Which of the two cases this is changes what an operator
+        # should do about it, so they are worded differently.
+        message = (
+            "%s is present but sealing the field-encryption key failed; it is "
+            "stored unprotected and falls back to %s."
+            if secret_store.is_available() else
+            "This platform offers no secure store — MediFlow targets Windows "
+            "and macOS — so the field-encryption key falls back to %s."
         )
-    key_path.write_bytes(_DPAPI_MAGIC + protected if protected else key)
+        arguments = ((secret_store.describe(), "file permissions")
+                     if secret_store.is_available() else ("file permissions",))
+        get_logger("security").warning(message, *arguments)
+    _replace_key_file(key_path, sealed or key)
+
+
+def _replace_key_file(key_path: Path, contents: bytes) -> None:
+    """Install ``contents`` as the key file without ever truncating the old one.
+
+    Losing this file means losing every encrypted column in the database, so the
+    new bytes land in a sibling file that is fully written and locked down first,
+    and only then replace the old one — a crash at any point leaves one intact
+    key file on disk rather than a half-written one.
+    """
+    staged = key_path.with_name(key_path.name + ".new")
+    staged.write_bytes(contents)
     try:
-        os.chmod(key_path, stat.S_IRUSR | stat.S_IWUSR)  # best-effort owner-only
-    except OSError:
+        os.chmod(staged, stat.S_IRUSR | stat.S_IWUSR)  # before it becomes the key
+    except OSError:  # pragma: no cover - best effort on exotic filesystems
         pass
+    os.replace(staged, key_path)
