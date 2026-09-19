@@ -10,7 +10,9 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QHeaderView,
+    QInputDialog,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QTableWidget,
@@ -139,14 +141,39 @@ class BackupView(BaseView):
         directory = QFileDialog.getExistingDirectory(self, self.tr("Select backup folder"))
         if not directory:
             return
+        # Only this button asks. A backup written to another folder is the one
+        # that goes on a USB stick to another machine, which is the only case
+        # where the encryption key has to travel — and the only case where a
+        # lost stick would otherwise be harmless.
+        passphrase = self._ask_passphrase(
+            self.tr("Backup passphrase (optional)"),
+            self.tr(
+                "To restore this backup on a DIFFERENT computer, set a "
+                "passphrase. The encryption key travels with the backup, "
+                "locked with it.\n\n"
+                "Write the passphrase down somewhere safe. It is not stored "
+                "anywhere and cannot be recovered — without it the backup "
+                "cannot be restored elsewhere.\n\n"
+                "Leave empty for a backup that only restores on this computer."
+            ))
         try:
-            path = self._service.create_backup(Path(directory))
+            path = self._service.create_backup(Path(directory), passphrase=passphrase)
         except MediFlowError as exc:
             QMessageBox.warning(self, self.tr("Error"), str(exc))
             return
         self._reload()
-        QMessageBox.information(self, self.tr("Backup created"),
-                               self.tr("Backup saved to {path}").format(path=str(path)))
+        detail = self.tr("Backup saved to {path}").format(path=str(path))
+        if passphrase:
+            detail += "\n\n" + self.tr(
+                "Its encryption key travelled with it. Keep the .key file "
+                "beside the .db file, and keep the passphrase separately.")
+        QMessageBox.information(self, self.tr("Backup created"), detail)
+
+    def _ask_passphrase(self, title: str, prompt: str) -> str | None:
+        """Ask for a passphrase. None when the operator declines to set one."""
+        value, accepted = QInputDialog.getText(
+            self, title, prompt, QLineEdit.EchoMode.Password)
+        return value if accepted and value else None
 
     def _restore(self) -> None:
         b = self._selected()
@@ -158,12 +185,33 @@ class BackupView(BaseView):
                     "A safety copy is made first. Continue?"))
         if confirm != QMessageBox.StandardButton.Yes:
             return
+        # Ask only when a key actually travelled with this backup; demanding a
+        # passphrase for an ordinary local restore would be theatre.
+        passphrase = self._ask_passphrase(
+            self.tr("Backup passphrase"),
+            self.tr(
+                "This backup carries its own encryption key, so it was made "
+                "for another computer.\n\n"
+                "Enter the passphrase used when it was created. Leave empty to "
+                "restore without it — the records will load but the encrypted "
+                "fields will not be readable."
+            )) if b.has_key else None
         try:
-            self._service.restore_backup(Path(b.path))
+            result = self._service.restore_backup(Path(b.path), passphrase=passphrase)
         except MediFlowError as exc:
             QMessageBox.warning(self, self.tr("Error"), str(exc))
             return
         self._reload()
+        if result.restart_required:
+            # Not a detail to bury in a status bar: until MediFlow restarts it
+            # still holds the previous key, so the restored records cannot be
+            # read and must not be edited.
+            QMessageBox.warning(
+                self, self.tr("Restart required"),
+                self.tr("Restored, and this backup's encryption key was "
+                        "adopted.\n\nClose MediFlow and open it again before "
+                        "using the restored data."))
+            return
         QMessageBox.information(
             self, self.tr("Restore complete"),
             self.tr("Restored. A safety copy of the previous data was saved."))

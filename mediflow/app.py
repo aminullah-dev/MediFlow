@@ -145,7 +145,8 @@ def _build_container_with(config: Config, database: Database) -> ServiceContaine
         users=UserService(database),
         audit=AuditService(database),
         settings=SettingsService(database),
-        backup=BackupService(database, config.paths.backups, cipher),
+        backup=BackupService(database, config.paths.backups, cipher,
+                             secret_key_path=config.paths.secret_key),
     )
 
 
