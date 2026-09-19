@@ -235,6 +235,8 @@ needs to meet.
 | `mediflow.iss` | Inno Setup: Program Files install, Start-menu + optional desktop shortcut, uninstaller. |
 | `build.ps1` | Orchestrates the Windows build. |
 | `build-macos.sh` | Orchestrates the macOS build, signing, notarisation and `.dmg`. |
+| `setup-macos.sh` | Takes a bare Mac to a finished build in one command. |
+| `verify-macos.sh` | Asks the OS whether a finished artifact is safe to ship. |
 | `entitlements.plist` | Hardened Runtime exceptions the notarised build needs to start. |
 
 ---
