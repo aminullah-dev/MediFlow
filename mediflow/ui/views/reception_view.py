@@ -107,6 +107,12 @@ class ReceptionView(BaseView):
         self._table.verticalHeader().setVisible(False)
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        # Status (4) sizes to its content. The labels are translated, and the
+        # longest Dari one — «در حال معاینه» — is half again the width of the
+        # English it was laid out for; at a fixed width the queue board elides
+        # the one column an operator scans, to «در حال …».
+        self._table.horizontalHeader().setSectionResizeMode(
+            4, QHeaderView.ResizeMode.ResizeToContents)
         self._table.itemSelectionChanged.connect(self._update_buttons)
         self._root.addWidget(self._table, stretch=1)
 

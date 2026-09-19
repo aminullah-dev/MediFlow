@@ -130,6 +130,8 @@ ignore = [
 # Console entry points: print() is the output, not a stray debug statement.
 "mediflow/app.py" = ["T201"]
 "mediflow/web/__main__.py" = ["T201"]
+# Image tooling: not shipped with the app, run by hand, prints its progress.
+"marketing/tools/*.py" = ["T201", "SLF001"]
 # Base is re-exported only after the loop above has imported every model
 # module, so SQLAlchemy sees a fully populated registry. The order is the
 # point; moving the import to the top would defeat it.

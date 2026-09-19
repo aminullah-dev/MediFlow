@@ -237,6 +237,11 @@ Stored as human-readable string values (`AppointmentStatus`, `InvoiceStatus`,
   whole tree on switch.
 - Missing `.qm` files degrade gracefully to source strings, so development is
   never blocked on translation.
+- `tests/test_translations.py` guards the catalogues: the two languages must
+  cover the same strings, nothing may be left blank or `unfinished`, the
+  dashboard's table-driven captions must be present, and the committed `.qm`
+  must carry what the `.ts` says. That last one matters — an edited `.ts` that
+  was never run through `pyside6-lrelease` changes nothing at runtime.
 
 ---
 
@@ -290,7 +295,10 @@ packaging/       mediflow.spec (both platforms), build.ps1, build-macos.sh,
                  mediflow.iss, make_icon.py, make_icns.py
 start.bat stop.bat          Windows web-UI launchers
 start.command stop.command  macOS web-UI launchers
-tests/           foundation, web, keyboard-layout and secret-store tests
+tests/           foundation, web, keyboard-layout, secret-store and
+                 translation-catalogue tests
+marketing/       Dari/Pashto social copy, generated cards, and screenshots of
+                 the running app — see marketing/README.md. Not packaged.
 ```
 
 ---

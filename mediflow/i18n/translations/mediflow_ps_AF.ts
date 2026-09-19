@@ -248,6 +248,66 @@
         <source>Completed today</source>
         <translation>نن بشپړ‌شوي</translation>
     </message>
+    <message>
+        <source>Collected today</source>
+        <translation>نن راټول شوی عاید</translation>
+    </message>
+    <message>
+        <source>Needs attention</source>
+        <translation>پاملرنې ته اړتیا</translation>
+    </message>
+    <message>
+        <source>Nothing needs attention.</source>
+        <translation>هیڅ شی پاملرنې ته اړتیا نه لري.</translation>
+    </message>
+    <message>
+        <source>Appointments, last 14 days</source>
+        <translation>نوبتونه، وروستۍ ۱۴ ورځې</translation>
+    </message>
+    <message>
+        <source>No appointments in the last 14 days</source>
+        <translation>په وروستیو ۱۴ ورځو کې نوبت نشته</translation>
+    </message>
+    <message>
+        <source>Out of stock</source>
+        <translation>نشته</translation>
+    </message>
+    <message>
+        <source>No quantity left to dispense</source>
+        <translation>د ویش لپاره څه نه دي پاتې</translation>
+    </message>
+    <message>
+        <source>Expiring batches</source>
+        <translation>د پای‌ته‌رسېدو بستې</translation>
+    </message>
+    <message>
+        <source>Expires within 90 days</source>
+        <translation>په ۹۰ ورځو کې پای ته رسېږي</translation>
+    </message>
+    <message>
+        <source>Low supplies</source>
+        <translation>کم شوي توکي</translation>
+    </message>
+    <message>
+        <source>At or below the reorder level</source>
+        <translation>د بیا امر په کچه یا تر هغې ښکته</translation>
+    </message>
+    <message>
+        <source>Lab results pending</source>
+        <translation>د لابراتوار پاتې پایلې</translation>
+    </message>
+    <message>
+        <source>Requested but not yet resulted</source>
+        <translation>پایله یې لا نه ده ثبت شوې</translation>
+    </message>
+    <message>
+        <source>Open invoices</source>
+        <translation>پاتې بیلونه</translation>
+    </message>
+    <message>
+        <source>Still owing payment</source>
+        <translation>تادیه یې لا پاتې ده</translation>
+    </message>
 </context>
 <context>
     <name>PlaceholderView</name>

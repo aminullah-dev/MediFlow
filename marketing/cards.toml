@@ -1,0 +1,60 @@
+# Text for the social cards, and the only place it is written down.
+#
+# marketing/tools/make_cards.py renders every entry here twice — 1080x1080 for
+# a Facebook or Instagram feed, 1080x1920 for a WhatsApp status — in both
+# languages. The post captions live in posts-dari.md and posts-pashto.md; a
+# card carries a headline and at most one supporting line, because anything
+# longer is unreadable on a phone at thumbnail size.
+#
+# "accent" picks the card's colour treatment, defined in make_cards.py:
+#   brand  — deep teal ground, cyan accent (the default)
+#   light  — pale ground, dark teal accent
+#   warn   — deep teal ground, amber accent (for anything cautionary)
+
+[[card]]
+id = "offline"
+accent = "brand"
+dari.headline = "انترنت قطع شد؟\nکلینیک شما کار می‌کند."
+dari.support = "بدون انترنت. بدون حساب آنلاین."
+pashto.headline = "انټرنیټ نشته؟\nستاسو کلینیک بیا هم چلیږي."
+pashto.support = "بې انټرنیټه. بې آنلاین حسابه."
+
+[[card]]
+id = "languages"
+accent = "light"
+dari.headline = "دری\nپښتو\nEnglish"
+dari.support = "کامل راست‌به‌چپ — نه ترجمهٔ یک صفحهٔ انگلیسی."
+pashto.headline = "پښتو\nدری\nEnglish"
+pashto.support = "بشپړ ښي‌نه‌کیڼ — نه د انګلیسي پاڼې ژباړه."
+
+[[card]]
+id = "pharmacy"
+accent = "warn"
+dari.headline = "دوا پیش از آنکه\nضایع شود، خبر می‌دهد."
+dari.support = "هشدار ۹۰ روز پیش از انقضا."
+pashto.headline = "درمل مو\nمه ضایع کوئ."
+pashto.support = "د پای نېټې ۹۰ ورځې مخکې خبرداری."
+
+[[card]]
+id = "privacy"
+accent = "brand"
+dari.headline = "تذکرهٔ مریض شما\nدر کلینیک شما می‌ماند."
+dari.support = "رمزگذاری‌شده. کلید نزد حساب ویندوز یا مک شما."
+pashto.headline = "د ناروغ تذکره\nستاسو په کلینیک کې پاتې کیږي."
+pashto.support = "کوډ شوې. کیلي ستاسو د حساب سره."
+
+[[card]]
+id = "backup"
+accent = "light"
+dari.headline = "یک فایل پشتیبان.\nدر کمپیوتر دیگر باز می‌شود."
+dari.support = "با رمز عبوری که خود شما انتخاب می‌کنید."
+pashto.headline = "یو بیک‌اپ فایل.\nپه بل کمپیوټر کې پرانیستل کیږي."
+pashto.support = "د هغه پاسورډ سره چې تاسو یې ټاکئ."
+
+[[card]]
+id = "modules"
+accent = "brand"
+dari.headline = "۱۶ بخش.\nیک برنامه.\nیک کمپیوتر."
+dari.support = "از پذیرش تا حسابداری."
+pashto.headline = "۱۶ برخې.\nیو پروګرام.\nیو کمپیوټر."
+pashto.support = "له پذیرش څخه تر حساب‌دارۍ پورې."

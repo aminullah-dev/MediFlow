@@ -248,6 +248,66 @@
         <source>Completed today</source>
         <translation>تکمیل‌شده امروز</translation>
     </message>
+    <message>
+        <source>Collected today</source>
+        <translation>وصول‌شده امروز</translation>
+    </message>
+    <message>
+        <source>Needs attention</source>
+        <translation>نیاز به توجه</translation>
+    </message>
+    <message>
+        <source>Nothing needs attention.</source>
+        <translation>چیزی نیاز به توجه ندارد.</translation>
+    </message>
+    <message>
+        <source>Appointments, last 14 days</source>
+        <translation>نوبت‌ها، ۱۴ روز اخیر</translation>
+    </message>
+    <message>
+        <source>No appointments in the last 14 days</source>
+        <translation>در ۱۴ روز اخیر نوبتی نیست</translation>
+    </message>
+    <message>
+        <source>Out of stock</source>
+        <translation>ناموجود</translation>
+    </message>
+    <message>
+        <source>No quantity left to dispense</source>
+        <translation>تعدادی برای توزیع باقی نمانده</translation>
+    </message>
+    <message>
+        <source>Expiring batches</source>
+        <translation>بچ‌های رو به انقضا</translation>
+    </message>
+    <message>
+        <source>Expires within 90 days</source>
+        <translation>تا ۹۰ روز انقضا می‌شود</translation>
+    </message>
+    <message>
+        <source>Low supplies</source>
+        <translation>لوازم کم‌موجود</translation>
+    </message>
+    <message>
+        <source>At or below the reorder level</source>
+        <translation>در حد سفارش مجدد یا پایین‌تر</translation>
+    </message>
+    <message>
+        <source>Lab results pending</source>
+        <translation>نتایج لابراتوار در انتظار</translation>
+    </message>
+    <message>
+        <source>Requested but not yet resulted</source>
+        <translation>درخواست شده، نتیجه هنوز ثبت نشده</translation>
+    </message>
+    <message>
+        <source>Open invoices</source>
+        <translation>فاکتورهای باز</translation>
+    </message>
+    <message>
+        <source>Still owing payment</source>
+        <translation>هنوز پرداخت نشده</translation>
+    </message>
 </context>
 <context>
     <name>PlaceholderView</name>
