@@ -141,12 +141,34 @@ step "Building the app"
 bash packaging/build-macos.sh $BUILD_ARGS \
     || die "The build failed. The output above says where."
 
-# ── 6. Say what is left, based on what is actually on this Mac ───────────────
+# ── 6. Say what is left, based on the artifact — not on what is installed ────
+# This used to ask the keychain whether a Developer ID certificate existed and
+# conclude from that alone that the build was "notarised and stapled. Ship it."
+# It said exactly that after a --no-notarize run, directly under build-macos.sh
+# correctly reporting the opposite. A certificate is what makes notarisation
+# possible, not evidence that it happened. Ask the file.
 TEAM_ID="${MEDIFLOW_TEAM_ID:-27RXPRW77S}"
-if security find-identity -v -p codesigning 2>/dev/null \
-        | grep -q "Developer ID Application.*$TEAM_ID"; then
+DMG="$(ls -t dist_installer/MediFlow-*.dmg 2>/dev/null | head -1)"
+
+if [ -n "$DMG" ] && xcrun stapler validate "$DMG" >/dev/null 2>&1; then
     step "Done"
-    echo "    The .dmg above is signed, notarised and stapled. Ship it."
+    echo "    $DMG"
+    echo "    Notarised and stapled — it opens on a clinic Mac with no internet."
+    echo "    Confirm before every handover:  bash packaging/verify-macos.sh"
+elif security find-identity -v -p codesigning 2>/dev/null \
+        | grep -q "Developer ID Application.*$TEAM_ID"; then
+    step "Done — signed, but NOT notarised"
+    cat <<TEXT
+    ${DMG:-the build} is signed with your Developer ID but carries no
+    notarisation ticket, so Gatekeeper refuses it on any Mac that DOWNLOADED
+    it. Copied by USB it still installs.
+
+    This is what --no-notarize produces. For a build you can hand over, run
+    again without that flag:
+
+      bash packaging/setup-macos.sh
+
+TEXT
 else
     step "Done — but this build cannot leave this Mac"
     cat <<TEXT
