@@ -1,9 +1,11 @@
 # Packaging MediFlow
 
-> **First time building for macOS?** Follow
-> [QUICKSTART-macOS-fa.md](QUICKSTART-macOS-fa.md) instead — the same job in
-> numbered steps, in Persian, assuming nothing. This file is the reference for
-> why each step is what it is.
+> **First time building for macOS?** Run `bash packaging/setup-macos.sh`. It
+> checks the toolchain, installs what it can, runs the tests and then builds,
+> stopping with a specific instruction whenever something is missing.
+> [QUICKSTART-macOS-fa.md](QUICKSTART-macOS-fa.md) walks through the same job
+> by hand, in Persian, assuming nothing. This file is the reference for *why*
+> each step is what it is.
 
 Produces a standalone app and a double-click installer for each target
 platform: Windows (PyInstaller + Inno Setup) and macOS (PyInstaller + `hdiutil`).
