@@ -185,7 +185,7 @@ def run() -> int:
     from mediflow.core.exceptions import MediFlowError
     from mediflow.i18n.translator import TranslationManager
     from mediflow.ui.main_window import MainWindow
-    from mediflow.ui.theme import ThemeManager
+    from mediflow.ui.theme import ThemeManager, load_fonts
 
     # -- global UI error guard ---------------------------------------------
     # PySide6 delivers exceptions from signal/slot handlers to sys.excepthook
@@ -232,6 +232,9 @@ def run() -> int:
     qt_app = _Application(sys.argv)
     qt_app.setApplicationName("MediFlow")
     qt_app.setOrganizationName("MediFlow")
+
+    # Before any widget is built: the stylesheet names Vazirmatn first.
+    load_fonts()
 
     translator = TranslationManager(qt_app)
     translator.install(Language(config.settings.language))

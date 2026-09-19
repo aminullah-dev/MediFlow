@@ -14,8 +14,9 @@ Notes
 * ``collect_submodules('mediflow')`` is essential: models are imported
   dynamically via importlib (``data/models/__init__.py``), so static analysis
   alone would miss them.
-* The compiled ``.qm`` translations are bundled as data next to their package
-  so the runtime ``Path(__file__).parent`` lookup keeps working when frozen.
+* The compiled ``.qm`` translations and the bundled Vazirmatn ``.ttf`` faces
+  are collected as data next to their packages so the runtime
+  ``Path(__file__).parent`` lookups keep working when frozen.
 * macOS builds are single-architecture — whatever the build Mac is. An Apple
   Silicon build will not start on an Intel Mac; build on each, or ship arm64
   only and let Intel machines fall out of scope explicitly.
@@ -95,7 +96,10 @@ def minimum_macos_version() -> str:
 
 
 hiddenimports = collect_submodules("mediflow")
-datas = collect_data_files("mediflow", includes=["**/*.qm"])
+# The .ttf glob is the bundled Vazirmatn: theme.load_fonts() reads it from
+# ui/fonts at runtime, and a frozen build that omits it falls back to
+# Tahoma on machines that have never seen a Persian UI font.
+datas = collect_data_files("mediflow", includes=["**/*.qm", "**/*.ttf"])
 
 excludes = [
     "tkinter", "pytest", "black", "mypy", "ruff", "setuptools", "pip",

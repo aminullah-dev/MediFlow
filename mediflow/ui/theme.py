@@ -10,10 +10,36 @@ spacing, and a clear typographic hierarchy.
 """
 from __future__ import annotations
 
+import logging
+from pathlib import Path
+
 from PySide6.QtCore import QObject, Signal
+from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import QApplication
 
 from mediflow.core.constants import Theme
+
+log = logging.getLogger(__name__)
+
+_FONTS_DIR = Path(__file__).parent / "fonts"
+
+
+def load_fonts() -> None:
+    """Register the bundled Vazirmatn faces with Qt.
+
+    The stylesheet asks for Vazirmatn first because the interface is Persian
+    and RTL. Nothing installs that family on a clinic PC, and MediFlow ships
+    offline with no web fonts to fall back on, so it has to come out of our own
+    bundle — otherwise the request silently degrades to Tahoma and the Persian
+    text loses its intended shaping and weights.
+
+    Call once, before the first widget exists. Missing or unreadable files are
+    logged rather than raised: a font that fails to load is a cosmetic
+    regression, not a reason to refuse to open the clinic's records.
+    """
+    for ttf in sorted(_FONTS_DIR.glob("*.ttf")):
+        if QFontDatabase.addApplicationFont(str(ttf)) == -1:
+            log.warning("Bundled font could not be loaded: %s", ttf.name)
 
 # Palette derived from the ui-ux-pro-max "healthcare/clinic" design system:
 # medical teal primary (#0891B2), health-green success (#16A34A), WCAG-checked.
@@ -26,22 +52,31 @@ _PALETTES: dict[Theme, dict[str, str]] = {
         "text": "#12252b",
         "text_muted": "#5a6b72",
         "text_faint": "#93a6ac",
-        "primary": "#0891b2",
-        "primary_hover": "#0e7490",
-        "primary_press": "#155e75",
+        # Primary is one step darker than the brand teal (#0891b2): white on
+        # #0891b2 is 3.68:1, below the 4.5:1 AA floor, and primary is a text
+        # background on every filled control. The whole ramp shifts with it so
+        # hover/press stay distinguishable.
+        "primary": "#0e7490",
+        "primary_hover": "#155e75",
+        "primary_press": "#114b5e",
         "on_primary": "#ffffff",
-        "danger": "#dc2626",
+        # #dc2626 cleared 4.5:1 on white but only reached 4.23:1 on the
+        # danger_soft hover fill, where the Danger button's label actually sits.
+        "danger": "#c81e1e",
         "danger_hover": "#b91c1c",
         "danger_soft": "#fdecec",
-        "success": "#16a34a",
+        "success": "#15803d",  # #16a34a was 3.30:1 on white
         "border": "#dde7e9",
-        "border_strong": "#c4d3d6",
+        # border_strong draws the outline of inputs and buttons. On a white
+        # card the old #c4d3d6 was 1.54:1 — the control had no discernible
+        # boundary at all, which 1.4.11 (non-text contrast, 3:1) forbids.
+        "border_strong": "#658a92",
         "sidebar_top": "#0a3a44",
-        "sidebar_bottom": "#0d5563",
+        "sidebar_bottom": "#0b4955",
         "sidebar_text": "#bcd4d8",
-        "sidebar_text_dim": "#7ea3a8",
+        "sidebar_text_dim": "#9bb8bc",
         "input_bg": "#ffffff",
-        "scrollbar": "#c8d6d9",
+        "scrollbar": "#658a92",
         "badge_bg": "#e0f5f4",
         "badge_text": "#0e7490",
     },
@@ -62,13 +97,15 @@ _PALETTES: dict[Theme, dict[str, str]] = {
         "danger_soft": "#3a1f1f",
         "success": "#37c26a",
         "border": "#243a41",
-        "border_strong": "#33505a",
+        "border_strong": "#4e7a89",  # #33505a was 1.97:1 on the card fill
         "sidebar_top": "#072830",
-        "sidebar_bottom": "#0a4451",
+        "sidebar_bottom": "#083842",
         "sidebar_text": "#aac6cc",
-        "sidebar_text_dim": "#6c9199",
+        # The gradient's lower half is its lightest point, and that is where
+        # the nav section labels sit: #6c9199 measured 3.14:1 there.
+        "sidebar_text_dim": "#85a4ab",
         "input_bg": "#0e1a1f",
-        "scrollbar": "#2a4149",
+        "scrollbar": "#4a7280",
         "badge_bg": "#0e3a3d",
         "badge_text": "#3dd6db",
     },
@@ -80,7 +117,7 @@ CURRENT: dict[str, str] = dict(_PALETTES[Theme.LIGHT])
 
 _QSS_TEMPLATE = """
 * {{
-    font-family: "Segoe UI", "Vazirmatn", "Iranian Sans", "Tahoma", sans-serif;
+    font-family: "Vazirmatn", "Segoe UI", "Iranian Sans", "Tahoma", sans-serif;
     font-size: 14px;
     outline: 0;
 }}
@@ -126,7 +163,7 @@ QPushButton#NavButton {{
 QPushButton#NavButton:hover {{ background-color: rgba(255,255,255,0.08); color: #ffffff; }}
 QPushButton#NavButton:checked {{
     background-color: {primary};
-    color: #ffffff;
+    color: {on_primary};
     font-weight: 600;
 }}
 
@@ -143,7 +180,7 @@ QFrame#Avatar {{
     border-radius: 17px;
     min-width: 34px; max-width: 34px; min-height: 34px; max-height: 34px;
 }}
-QLabel#AvatarText {{ color: #ffffff; font-weight: 700; font-size: 14px; background: transparent; }}
+QLabel#AvatarText {{ color: {on_primary}; font-weight: 700; font-size: 14px; background: transparent; }}
 
 /* ---- Cards ----------------------------------------------------------- */
 QFrame#Card, QGroupBox {{
@@ -198,7 +235,7 @@ QLineEdit, QComboBox, QDateEdit, QSpinBox, QTextEdit, QPlainTextEdit {{
     padding: 9px 12px;
     color: {text};
     selection-background-color: {primary};
-    selection-color: #ffffff;
+    selection-color: {on_primary};
 }}
 QLineEdit:focus, QComboBox:focus, QDateEdit:focus, QSpinBox:focus,
 QTextEdit:focus, QPlainTextEdit:focus {{ border: 2px solid {primary}; padding: 8px 11px; }}
@@ -210,7 +247,7 @@ QComboBox QAbstractItemView {{
     border-radius: 8px;
     padding: 4px;
     selection-background-color: {primary};
-    selection-color: #ffffff;
+    selection-color: {on_primary};
     outline: 0;
 }}
 
@@ -258,7 +295,7 @@ QTableView {{
     border: 1px solid {border};
     border-radius: 14px;
     selection-background-color: {primary};
-    selection-color: #ffffff;
+    selection-color: {on_primary};
 }}
 QTableView::item {{ padding: 8px 10px; }}
 QHeaderView::section {{

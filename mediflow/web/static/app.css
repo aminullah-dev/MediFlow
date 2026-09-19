@@ -1,20 +1,111 @@
 /* MediFlow web — carries over the desktop palette (clinical teal on deep navy)
    so the two builds read as one product. RTL-first: logical properties only,
-   so a future LTR/English mode needs no extra rules. */
+   so a future LTR/English mode needs no extra rules.
+
+   Both themes live here, matching the desktop build, which ships light and
+   dark and opens in light. So light is the default in :root and dark arrives
+   through prefers-color-scheme — a browser that reports no preference then
+   lands on the same theme the desktop app would have shown.
+
+   Every colour a rule needs is a token. The old sheet hardcoded the dark
+   status-pill tints inline, which is exactly what made a second theme
+   impossible: a literal #10331c cannot follow the media query.
+
+   Contrast: every foreground/background pair below is checked against WCAG 2.1
+   AA — 4.5:1 for text, 3:1 for the outlines that identify a control (1.4.11).
+   The few tokens that differ from the desktop palette differ because the
+   desktop value failed that check; see mediflow/ui/theme.py for the same
+   corrections. */
+
+/* Vazirmatn is bundled, not fetched: the product runs in clinics with no
+   internet, so a Google Fonts link would simply never resolve and the Persian
+   UI would fall back to whatever the machine happens to have. Four weights,
+   matching the four the sheet actually uses (400/500/600/700). */
+@font-face {
+  font-family: Vazirmatn;
+  src: url("/static/fonts/Vazirmatn-Regular.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: Vazirmatn;
+  src: url("/static/fonts/Vazirmatn-Medium.woff2") format("woff2");
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: Vazirmatn;
+  src: url("/static/fonts/Vazirmatn-SemiBold.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: Vazirmatn;
+  src: url("/static/fonts/Vazirmatn-Bold.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+
 :root {
-  --bg: #0b1418;
-  --surface: #121e23;
-  --surface-alt: #18272d;
-  --text: #e6f0f2;
-  --muted: #8ba0a6;
-  --primary: #22c3c9;
-  --primary-hover: #3dd6db;
-  --on-primary: #04231f;
-  --danger: #f26d6d;
-  --danger-soft: #3a1f1f;
-  --warn: #d97706;
-  --border: #243a41;
+  color-scheme: light;
+
+  --bg: #eaf0f1;
+  --surface: #ffffff;
+  --surface-alt: #f1f6f7;
+  --text: #12252b;
+  --muted: #5a6b72;
+
+  /* One step darker than the #0891b2 brand teal: white on #0891b2 is 3.68:1,
+     and primary is the fill behind button and nav labels. */
+  --primary: #0e7490;
+  --primary-hover: #155e75;
+  --on-primary: #ffffff;
+
+  --danger: #c81e1e;      /* #dc2626 fell to 4.23:1 on the tint below */
+  --danger-soft: #fdecec;
+  --warn: #9c5604;        /* #d97706 is only 3.1:1 on a light surface */
+  --warn-soft: #fdf3da;
+  --warn-ink: #8a5300;    /* amber is unreadable on its own tint at page weight */
+  --success: #15803d;     /* #16a34a was 3.30:1 on white */
+  --success-soft: #e8f7ee;
+  --info: #15628f;
+  --info-soft: #e4f0fa;
+  --accent-soft: #e0f5f4; /* teal tint; its ink is --primary */
+
+  --border: #dde7e9;
+  --border-strong: #658a92;  /* outlines inputs and buttons — needs 3:1 */
+  --input-bg: #ffffff;
+  --focus-ring: rgba(14, 116, 144, .25);
+
   --radius: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --bg: #0b1418;
+    --surface: #121e23;
+    --surface-alt: #18272d;
+    --text: #e6f0f2;
+    --muted: #8ba0a6;
+
+    --primary: #22c3c9;
+    --primary-hover: #3dd6db;
+    --on-primary: #04231f;
+
+    --danger: #f26d6d;
+    --danger-soft: #3a1f1f;
+    --warn: #d97706;
+    --warn-soft: #3a2f0e;
+    --warn-ink: #e0a93a;
+    --success: #37c26a;
+    --success-soft: #10331c;
+    --info: #4aa8e0;
+    --info-soft: #0e2a3a;
+    --accent-soft: #0e3a3d;
+
+    --border: #243a41;
+    --border-strong: #4e7a89;  /* #33505a was 1.97:1 on the card fill */
+    --input-bg: #0e1a1f;
+    --focus-ring: rgba(34, 195, 201, .25);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -23,7 +114,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: "Segoe UI", Vazirmatn, Tahoma, sans-serif;
+  font-family: Vazirmatn, "Segoe UI", Tahoma, sans-serif;
   font-size: 15px;
   line-height: 1.6;
 }
@@ -57,14 +148,14 @@ body {
 
 .field {
   width: 100%;
-  background: #0e1a1f;
-  border: 1px solid #33505a;
+  background: var(--input-bg);
+  border: 1px solid var(--border-strong);
   border-radius: 9px;
   padding: 11px 13px;
   color: var(--text);
   font: inherit;
 }
-.field:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(34,195,201,.25); }
+.field:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--focus-ring); }
 
 .password-wrap { position: relative; display: flex; align-items: center; }
 .password-wrap .field { padding-inline-start: 42px; }
@@ -127,7 +218,7 @@ body {
 
 .btn-ghost {
   background: transparent; color: var(--danger);
-  border: 1px solid #33505a; border-radius: 9px;
+  border: 1px solid var(--border-strong); border-radius: 9px;
   padding: 8px 14px; font: inherit; font-weight: 600; cursor: pointer;
 }
 .btn-ghost:hover { border-color: var(--danger); background: var(--danger-soft); }
@@ -210,7 +301,7 @@ textarea.field { resize: vertical; font: inherit; }
 .req { color: var(--danger); }
 .lock { color: var(--muted); font-weight: 400; font-size: 12px; }
 
-.banner.ok { background: #0e3a3d; border: 1px solid var(--primary); color: var(--primary); }
+.banner.ok { background: var(--accent-soft); border: 1px solid var(--primary); color: var(--primary); }
 
 .empty { padding: 40px; text-align: center; color: var(--muted); }
 .empty .btn-inline { margin-top: 14px; }
@@ -229,10 +320,10 @@ a.stat:hover { border-color: var(--primary); }
   font-size: 12px; font-weight: 700; white-space: nowrap;
   background: var(--surface-alt); color: var(--muted);
 }
-.status-booked         { background: #0e3a3d; color: var(--primary); }
-.status-checked_in     { background: #3a2f0e; color: #e0a93a; }
-.status-in_consultation{ background: #0e2a3a; color: #4aa8e0; }
-.status-completed      { background: #10331c; color: #37c26a; }
+.status-booked         { background: var(--accent-soft); color: var(--primary); }
+.status-checked_in     { background: var(--warn-soft); color: var(--warn-ink); }
+.status-in_consultation{ background: var(--info-soft); color: var(--info); }
+.status-completed      { background: var(--success-soft); color: var(--success); }
 .status-cancelled,
 .status-no_show        { background: var(--danger-soft); color: var(--danger); }
 
@@ -247,13 +338,13 @@ a.stat:hover { border-color: var(--primary); }
 .actions form { margin: 0; }
 .btn-mini {
   background: var(--surface-alt); color: var(--text);
-  border: 1px solid #33505a; border-radius: 8px;
+  border: 1px solid var(--border-strong); border-radius: 8px;
   padding: 5px 11px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
   white-space: nowrap;
 }
 .btn-mini:hover { border-color: var(--primary); color: var(--primary); }
 .btn-mini.danger:hover { border-color: var(--danger); color: var(--danger); }
-.btn-mini.ok:hover { border-color: #37c26a; color: #37c26a; }
+.btn-mini.ok:hover { border-color: var(--success); color: var(--success); }
 
 .checkline { display: flex; align-items: center; gap: 9px; margin-top: 16px; color: var(--muted); }
 .checkline input { width: 17px; height: 17px; accent-color: var(--primary); }
@@ -287,8 +378,8 @@ a.stat:hover { border-color: var(--primary); }
   font-family: Consolas, monospace; font-size: 17px; font-weight: 700;
   color: var(--primary);
 }
-.queue-card.serving .token { color: #4aa8e0; }
-.queue-card.done .token { color: #37c26a; }
+.queue-card.serving .token { color: var(--info); }
+.queue-card.done .token { color: var(--success); }
 .queue-card .who { flex: 1; display: flex; flex-direction: column; }
 .queue-card .who a { color: var(--text); text-decoration: none; font-weight: 600; }
 .queue-card .who a:hover { color: var(--primary); }
@@ -324,8 +415,8 @@ a.stat:hover { border-color: var(--primary); }
   display: inline-block; margin-inline-start: 8px; padding: 2px 9px;
   border-radius: 9px; font-size: 11px; font-weight: 700;
 }
-.sev-mild     { background: #10331c; color: #37c26a; }
-.sev-moderate { background: #3a2f0e; color: #e0a93a; }
+.sev-mild     { background: var(--success-soft); color: var(--success); }
+.sev-moderate { background: var(--warn-soft); color: var(--warn-ink); }
 .sev-severe   { background: var(--danger-soft); color: var(--danger); }
 
 /* Add-rows wrap on narrow screens instead of overflowing the card. */
@@ -403,9 +494,9 @@ a.stat:hover { border-color: var(--primary); }
 .inline-form.no-rule { border-top: 0; padding-top: 0; }
 
 /* ---- billing ----------------------------------------------------------- */
-.status-inv-unpaid         { background: #3a2f0e; color: #e0a93a; }
-.status-inv-partially_paid { background: #0e2a3a; color: #4aa8e0; }
-.status-inv-paid           { background: #10331c; color: #37c26a; }
+.status-inv-unpaid         { background: var(--warn-soft); color: var(--warn-ink); }
+.status-inv-partially_paid { background: var(--info-soft); color: var(--info); }
+.status-inv-paid           { background: var(--success-soft); color: var(--success); }
 .status-inv-draft          { background: var(--surface-alt); color: var(--muted); }
 .status-inv-cancelled,
 .status-inv-refunded       { background: var(--danger-soft); color: var(--danger); }
@@ -445,15 +536,15 @@ a.stat:hover { border-color: var(--primary); }
 
 /* ---- laboratory -------------------------------------------------------- */
 .status-lab-requested        { background: var(--surface-alt); color: var(--muted); }
-.status-lab-sample_collected { background: #3a2f0e; color: #e0a93a; }
-.status-lab-in_progress      { background: #0e2a3a; color: #4aa8e0; }
-.status-lab-completed        { background: #10331c; color: #37c26a; }
+.status-lab-sample_collected { background: var(--warn-soft); color: var(--warn-ink); }
+.status-lab-in_progress      { background: var(--info-soft); color: var(--info); }
+.status-lab-completed        { background: var(--success-soft); color: var(--success); }
 .status-lab-cancelled        { background: var(--danger-soft); color: var(--danger); }
 
 /* Abnormal results have to be readable at a glance on the worklist. */
-.tag.flag-normal   { background: #10331c; color: #37c26a; }
+.tag.flag-normal   { background: var(--success-soft); color: var(--success); }
 .tag.flag-high,
-.tag.flag-low      { background: #3a2f0e; color: #e0a93a; }
+.tag.flag-low      { background: var(--warn-soft); color: var(--warn-ink); }
 .tag.flag-critical { background: var(--danger-soft); color: var(--danger); }
 
 .btn-ghost.active-toggle { border-color: var(--primary); color: var(--primary); }
@@ -465,7 +556,7 @@ a.btn-mini { text-decoration: none; display: inline-block; }
 .notes-list strong { color: var(--text); }
 
 /* ---- accounting -------------------------------------------------------- */
-.hint.balanced { color: var(--success, #37c26a); }
+.hint.balanced { color: var(--success); }
 .totals-row td { border-top: 2px solid var(--border); background: var(--surface-alt); }
 .lines-table .acct { min-width: 190px; }
 
