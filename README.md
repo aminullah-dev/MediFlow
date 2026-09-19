@@ -18,7 +18,7 @@ and a CI job that runs the suite on the real OS.
 | | Windows 10/11 | macOS 11+ |
 |---|---|---|
 | Installer | `MediFlow-Setup-<v>.exe` (Inno Setup) | `MediFlow-<v>-<arch>.dmg` (drag to Applications) |
-| Build | `packaging\build.ps1` | `packaging/build-macos.sh` |
+| Build | `packaging\build.ps1` | `packaging/build-macos.sh` ([step-by-step, fa](packaging/QUICKSTART-macOS-fa.md)) |
 | Web UI launchers | `start.bat` · `stop.bat` | `start.command` · `stop.command` |
 | Data folder | `%APPDATA%\MediFlow` | `~/Library/Application Support/MediFlow` |
 | Encryption key sealed with | DPAPI | Keychain (Security.framework) |
