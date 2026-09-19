@@ -18,12 +18,14 @@ cd "$ROOT"
 
 RUN_TESTS="${MEDIFLOW_SETUP_TESTS:-1}"
 BUILD="1"
+BUILD_ARGS=""
 for arg in "$@"; do
     case "$arg" in
         --no-build) BUILD="0" ;;
         --no-tests) RUN_TESTS="0" ;;
+        --no-notarize) BUILD_ARGS="--no-notarize" ;;
         -h|--help)
-            echo "usage: bash packaging/setup-macos.sh [--no-build] [--no-tests]"
+            echo "usage: bash packaging/setup-macos.sh [--no-build] [--no-tests] [--no-notarize]"
             exit 0 ;;
         *) echo "unknown option: $arg" >&2; exit 2 ;;
     esac
@@ -132,7 +134,12 @@ if [ "$BUILD" = "0" ]; then
 fi
 
 step "Building the app"
-bash packaging/build-macos.sh || die "The build failed. The output above says where."
+# Unquoted on purpose: empty must expand to no argument at all, and the only
+# value it ever holds is a single flag with no spaces. macOS ships bash 3.2,
+# so the guarded-array idiom buys nothing here.
+# shellcheck disable=SC2086
+bash packaging/build-macos.sh $BUILD_ARGS \
+    || die "The build failed. The output above says where."
 
 # ── 6. Say what is left, based on what is actually on this Mac ───────────────
 TEAM_ID="${MEDIFLOW_TEAM_ID:-27RXPRW77S}"

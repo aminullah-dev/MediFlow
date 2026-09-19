@@ -38,6 +38,42 @@ TEAM_ID="${MEDIFLOW_TEAM_ID:-27RXPRW77S}"
 # repository, the environment, or CI logs.
 NOTARY_PROFILE="${MEDIFLOW_NOTARY_PROFILE:-MediFlow}"
 
+# Set to 0 (or pass --no-notarize) to sign but skip the trip to Apple. The
+# result is valid over USB and refused on download, so this is for iterating on
+# the build, not for shipping.
+NOTARIZE="${MEDIFLOW_NOTARIZE:-1}"
+for arg in "$@"; do
+    case "$arg" in
+        --no-notarize) NOTARIZE="0" ;;
+        -h|--help) echo "usage: bash packaging/build-macos.sh [--no-notarize]"; exit 0 ;;
+        *) echo "unknown option: $arg" >&2; exit 2 ;;
+    esac
+done
+
+_store_credentials_hint() {
+    cat >&2 <<HINT
+
+The notarytool credential profile "$NOTARY_PROFILE" does not exist on this Mac.
+Create it once — it is the only step no script can do for you, because it needs
+your Apple ID:
+
+  1. Make an app-specific password at https://account.apple.com
+     (Sign-In and Security > App-Specific Passwords). It looks like
+     abcd-efgh-ijkl-mnop and is shown only once.
+
+  2. Run, with your own Apple ID and that password:
+
+     xcrun notarytool store-credentials "$NOTARY_PROFILE" \
+         --apple-id "YOUR-APPLE-ID" \
+         --team-id $TEAM_ID \
+         --password "abcd-efgh-ijkl-mnop"
+
+Then run this build again. To build without notarising in the meantime:
+
+     bash packaging/setup-macos.sh --no-notarize
+HINT
+}
+
 # ── Identity ──────────────────────────────────────────────────────────────────
 # Resolve the Developer ID from the keychain rather than making the operator
 # paste an exact certificate name. An Individual account's certificate is named
@@ -55,6 +91,21 @@ if [ -n "$IDENTITY" ]; then
     export MEDIFLOW_CODESIGN_IDENTITY="$IDENTITY"   # the spec signs with it too
 else
     echo "==> No Developer ID for team $TEAM_ID in the keychain — ad-hoc build"
+fi
+
+# Check the notarisation credentials up front. store-credentials writes a
+# generic-password item; the service name is an implementation detail, so a
+# miss here is reported as a warning and the build continues rather than
+# refusing on a guess. The real check is the submission itself.
+if [ -n "$IDENTITY" ] && [ "$NOTARIZE" = "1" ]; then
+    if security find-generic-password -s "com.apple.gke.notary.tool" \
+            -a "$NOTARY_PROFILE" >/dev/null 2>&1 \
+       || security find-generic-password -a "$NOTARY_PROFILE" >/dev/null 2>&1; then
+        echo "==> Notarisation profile \"$NOTARY_PROFILE\" found"
+    else
+        echo "==> WARNING: no notarisation profile \"$NOTARY_PROFILE\" found."
+        echo "    Building anyway; if the submission fails, the fix is printed."
+    fi
 fi
 
 # Report the shipped constraints from the artifact itself, not from what the
@@ -108,8 +159,9 @@ echo "==> Signature verified"
 # copied out of a .dmg keeps whatever was stapled at the time the image was
 # built. Notarising only the .dmg would leave the installed app relying on a
 # network check — which is the one thing an offline clinic cannot do.
-if [ -n "$IDENTITY" ]; then
+if [ -n "$IDENTITY" ] && [ "$NOTARIZE" = "1" ]; then
     echo "==> Notarising the app (team $TEAM_ID, profile $NOTARY_PROFILE)"
+    mkdir -p build
     ZIP="build/MediFlow-$VERSION.zip"        # beside the other build artifacts
     # ditto, not zip: it preserves the symlinks and extended attributes inside a
     # .app, which a plain zip silently flattens into an invalid bundle.
@@ -117,10 +169,19 @@ if [ -n "$IDENTITY" ]; then
     ditto -c -k --keepParent "$APP" "$ZIP"
     # The keychain profile already carries the Apple ID and team, so --team-id
     # is not passed again here.
-    if ! xcrun notarytool submit "$ZIP" \
-            --keychain-profile "$NOTARY_PROFILE" --wait; then
+    NOTARY_LOG="build/notarytool-app.log"
+    if xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait \
+            2>&1 | tee "$NOTARY_LOG"; then
+        :
+    elif grep -q "No Keychain password item found" "$NOTARY_LOG"; then
+        # Nothing was ever submitted, so there is no log to fetch. Different
+        # problem, different instruction.
+        _store_credentials_hint
+        exit 1
+    else
         echo >&2
-        echo "Notarisation failed. For the per-file reasons, run:" >&2
+        echo "Apple rejected the submission. The signed app is still at $APP." >&2
+        echo "For the per-file reasons, take the id printed above and run:" >&2
         echo "  xcrun notarytool log <submission-id> --keychain-profile $NOTARY_PROFILE" >&2
         exit 1
     fi
@@ -140,7 +201,7 @@ hdiutil create -volname "MediFlow $VERSION" -srcfolder "$STAGE" \
     -ov -format UDZO "$DMG" >/dev/null
 echo "==> Installer written to $DMG"
 
-if [ -n "$IDENTITY" ]; then
+if [ -n "$IDENTITY" ] && [ "$NOTARIZE" = "1" ]; then
     echo "==> Signing and notarising the disk image"
     codesign --force --sign "$IDENTITY" --timestamp "$DMG"
     xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
@@ -152,6 +213,17 @@ if [ -n "$IDENTITY" ]; then
     echo
     echo "Ready to ship: $DMG"
     echo "  Notarised and stapled — it opens on a clinic Mac with no internet."
+    _summarise
+elif [ -n "$IDENTITY" ]; then
+    # Signed with a real Developer ID, but --no-notarize was asked for.
+    codesign --force --sign "$IDENTITY" --timestamp "$DMG"
+    echo
+    echo "Built and signed, NOT notarised (--no-notarize): $DMG"
+    echo "  Copied by USB it installs and runs anywhere."
+    echo "  DOWNLOADED it is quarantined and refused, because Gatekeeper checks"
+    echo "  notarisation, not just the signature. Do not ship this by email or"
+    echo "  a download link — re-run without --no-notarize for that."
+    echo
     _summarise
 else
     echo

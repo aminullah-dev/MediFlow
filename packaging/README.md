@@ -122,8 +122,19 @@ and `codesign -dv --verbose=4 MediFlow.app` prints it. Override with
    the build Mac's keychain — never in the repository, the environment, or a CI
    log. Override the profile name with `MEDIFLOW_NOTARY_PROFILE`.
 
-After that, `bash packaging/build-macos.sh` produces a notarised, stapled `.dmg`
+After that, `bash packaging/setup-macos.sh` produces a notarised, stapled `.dmg`
 with no further arguments.
+
+The certificate and the credential profile are checked independently, because
+having one without the other is the common state. The build warns up front when
+the profile is missing, and if the submission then fails for that reason it
+prints the `store-credentials` command rather than pointing at a submission log
+that was never created.
+
+`--no-notarize` signs without the trip to Apple. The result installs and runs
+when copied by USB and is refused when downloaded, since Gatekeeper checks
+notarisation rather than the signature alone. Use it to iterate on the build,
+never for a release.
 
 #### Why the stapling step is the one that matters here
 
